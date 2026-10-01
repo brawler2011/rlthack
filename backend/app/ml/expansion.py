@@ -10,12 +10,23 @@ making a product with the lot's code. Size, region and age only break ties insid
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date
 
 import numpy as np
 
 EXTRA_OKVED_WEIGHT = 0.5
 PRODUCT_BONUS = 1.0
 MIN_WINS = 3  # OKPD2 keys with fewer wins fall back to the class level
+
+WINS_SQL = """
+SELECT array_agg(DISTINCT i.okpd2_code), c.okved_main
+FROM bids b
+JOIN lots l USING (lot_id)
+JOIN lot_items i USING (lot_id)
+JOIN companies c ON c.inn = b.supplier_inn
+WHERE b.is_winner AND l.publish_date < %s AND i.okpd2_code IS NOT NULL
+GROUP BY b.lot_id, c.okved_main
+"""
 
 REGISTRY_SQL = """
 SELECT inn, okved_main, okved_extra, products, region_code, msp_category, headcount,
@@ -36,6 +47,11 @@ class OkvedAffinity:
             for group, share in table.items():
                 result[group] = max(result.get(group, 0.0), share)
         return result
+
+
+def affinity_from_db(conn, before: date = date.max) -> OkvedAffinity:
+    """Learn the OKVED fit from wins of registry companies on lots published before a date."""
+    return learn_affinity(conn.execute(WINS_SQL, (before,)).fetchall())
 
 
 def learn_affinity(wins: Iterable[tuple[list[str], str | None]]) -> OkvedAffinity:

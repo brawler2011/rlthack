@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     catboost_model_path: Path = models_dir / "catboost_ranker.cbm"
     embeddings_dir: Path = processed_data_dir / "embeddings"
     transformer_model_name: str = "sergeyzh/rubert-tiny-turbo"
+    load_engine: bool = True  # load embeddings, ranker and registry at startup
 
     cors_origins: list[str] = [
         "http://localhost:3000",

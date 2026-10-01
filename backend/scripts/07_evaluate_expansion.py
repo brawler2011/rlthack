@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np  # noqa: E402
 
 from app.etl import pipeline  # noqa: E402
-from app.ml.expansion import expand, learn_affinity, load_registry  # noqa: E402
+from app.ml.expansion import affinity_from_db, expand, load_registry  # noqa: E402
 
 KS = (1, 5, 10, 20, 50, 100)
 GROUP_KS = (1, 3, 5, 10)
@@ -28,15 +28,6 @@ SELECT b.lot_id, l.publish_date - DATE '1970-01-01', array_agg(b.supplier_inn)
 FROM bids b JOIN lots l USING (lot_id)
 WHERE l.publish_date >= %s AND b.is_winner
 GROUP BY b.lot_id, l.publish_date
-"""
-WINS_SQL = """
-SELECT array_agg(DISTINCT i.okpd2_code), c.okved_main
-FROM bids b
-JOIN lots l USING (lot_id)
-JOIN lot_items i USING (lot_id)
-JOIN companies c ON c.inn = b.supplier_inn
-WHERE b.is_winner AND l.publish_date < %s AND i.okpd2_code IS NOT NULL
-GROUP BY b.lot_id, c.okved_main
 """
 CODES_SQL = """
 SELECT lot_id, array_agg(DISTINCT okpd2_code)
@@ -56,7 +47,7 @@ def main():
         cold = [(lot, day, inns) for lot, day, inns in lots if not known.intersection(inns)]
         codes = dict(conn.execute(CODES_SQL, ([lot for lot, _, _ in cold],)).fetchall())
         registry = load_registry(conn)
-        affinity = learn_affinity(conn.execute(WINS_SQL, (args.cutoff,)).fetchall())
+        affinity = affinity_from_db(conn, args.cutoff)
 
     exclude = np.isin(registry.inns, list(known))
     row_of = {inn: i for i, inn in enumerate(registry.inns.tolist())}

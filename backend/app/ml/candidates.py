@@ -5,6 +5,7 @@ retrieval matrices (similar lot texts, OKPD2 prefixes, customer) and per-supplie
 A ranker trained on one snapshot is applied with a later one, the way it runs in production.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -87,6 +88,7 @@ class Dataset:
     pref_lot: np.ndarray  # (lot row, prefix id) pairs, sorted by lot row
     pref_id: np.ndarray
     prefix_weight: np.ndarray  # OKPD2 level weight per prefix id
+    prefixes: np.ndarray | None = None  # prefix string per prefix id
 
     def bidders(self, row: int) -> np.ndarray:
         a, b = np.searchsorted(self.bid_lot, [row, row + 1])
@@ -95,6 +97,43 @@ class Dataset:
     def winners(self, row: int) -> np.ndarray:
         a, b = np.searchsorted(self.bid_lot, [row, row + 1])
         return self.bid_inn[a:b][self.bid_win[a:b]]
+
+    def prefix_ids(self, okpd2_codes: list[str]) -> np.ndarray:
+        """Ids of the class / group / kind prefixes of the codes that exist in the data."""
+        found = set()
+        for code in okpd2_codes:
+            for pattern in _PREFIX_PATTERNS:
+                if (m := pattern.match(code.strip())) is not None:
+                    i = np.searchsorted(self.prefixes, m.group())
+                    if i < len(self.prefixes) and self.prefixes[i] == m.group():
+                        found.add(int(i))
+        return np.array(sorted(found), dtype=np.int64)
+
+    def new_query(
+        self,
+        vector: np.ndarray,
+        okpd2_codes: list[str],
+        customer_inn: str | None,
+        start_price: float | None,
+        channel: str | None,
+        smp: bool,
+        day: int,
+    ) -> Query:
+        """A query for a lot that is not in the data."""
+
+        def code(values: np.ndarray, value: str | None) -> int:
+            i = np.searchsorted(values, value or "")
+            return int(i) if value and i < len(values) and values[i] == value else -1
+
+        return Query(
+            vector=vector,
+            prefixes=self.prefix_ids(okpd2_codes),
+            customer=code(self.customers, customer_inn),
+            log_price=float(np.log(start_price)) if start_price and start_price > 0 else np.nan,
+            channel=code(self.channels, channel),
+            smp=smp,
+            day=day,
+        )
 
     def query(self, row: int, emb: LotEmbeddings) -> Query:
         a, b = np.searchsorted(self.pref_lot, [row, row + 1])
@@ -107,6 +146,10 @@ class Dataset:
             smp=bool(self.lot_smp[row]),
             day=int(self.lot_day[row]),
         )
+
+
+# The same prefixes as okpd2_prefix() in schema.sql: class, group, kind.
+_PREFIX_PATTERNS = [re.compile(p) for p in (r"^\d{2}", r"^\d{2}\.\d{2}", r"^\d{2}\.\d{2}\.\d{2}")]
 
 
 def _codes(values: list[str | None]) -> tuple[np.ndarray, np.ndarray]:
@@ -151,6 +194,7 @@ def load_dataset(conn, emb: LotEmbeddings) -> Dataset:
         pref_lot=np.searchsorted(lot_ids, [lot for lot, _ in pairs]),
         pref_id=pref_id,
         prefix_weight=np.vectorize(lambda n: OKPD2_LEVEL_WEIGHTS.get(n, 0.0))(level),
+        prefixes=prefixes,
     )
 
 
@@ -160,6 +204,8 @@ class Retrieval:
     rankings: list[np.ndarray]  # per source, best first
     fused: np.ndarray  # weighted reciprocal rank fusion of the rankings
     candidates: np.ndarray  # top suppliers by the fused score
+    similar_texts: np.ndarray  # rows of the most similar past lot texts, for explanations
+    similar_sims: np.ndarray
 
 
 class History:
@@ -220,6 +266,7 @@ class History:
             "bids": bids,
             "wins": total(win),
             "contested_bids": contested_bids,
+            "contested_wins": contested_wins,
             "win_rate": (contested_wins + 5 * prior) / (contested_bids + 5),
             "last_win": last_win,
             "recent_wins": total(win & (day >= self.cutoff_day - RECENT_DAYS)),
@@ -243,7 +290,8 @@ class History:
         ]
         rankings = [history.top_suppliers(s, TOP_PER_SOURCE) for s in scores]
         fused = history.reciprocal_rank_fusion(rankings, len(self.inns), FUSION_WEIGHTS)
-        return Retrieval(scores, rankings, fused, history.top_suppliers(fused, TOP_PER_SOURCE))
+        candidates = history.top_suppliers(fused, TOP_PER_SOURCE)
+        return Retrieval(scores, rankings, fused, candidates, rows, sims)
 
     def features(self, q: Query, r: Retrieval) -> np.ndarray:
         """(candidates x FEATURES) matrix; NaN where a value is unknown."""
