@@ -1,5 +1,6 @@
 class SemanticRetriever:
     """Семантический поиск векторов через cointegrated/rubert-tiny2."""
+
     def __init__(self, model_name: str = "cointegrated/rubert-tiny2"):
         self.model_name = model_name
 

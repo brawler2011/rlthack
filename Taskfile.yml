@@ -1,0 +1,147 @@
+version: '3'
+
+vars:
+  BACKEND_DIR: backend
+  FRONTEND_DIR: frontend
+
+tasks:
+  default:
+    desc: Показать список доступных команд
+    cmds:
+      - task --list
+
+  setup:
+    desc: Установить зависимости для бэкенда (Poetry) и фронтенда (Bun)
+    cmds:
+      - task: setup:backend
+      - task: setup:frontend
+
+  setup:backend:
+    desc: Установить зависимости бэкенда через Poetry
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry install
+
+  setup:frontend:
+    desc: Установить зависимости фронтенда через Bun
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun install
+
+  lint:
+    desc: Запустить все линтеры (Ruff для Python, ESLint для фронтенда)
+    cmds:
+      - task: lint:backend
+      - task: lint:frontend
+
+  lint:backend:
+    desc: Запустить проверку линтером Ruff для Python
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run ruff check .
+
+  lint:frontend:
+    desc: Запустить проверку ESLint для фронтенда
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun run lint
+
+  format:
+    desc: Отформатировать весь код (Ruff для бэкенда, Prettier для фронтенда)
+    cmds:
+      - task: format:backend
+      - task: format:frontend
+
+  format:backend:
+    desc: Отформатировать Python-код через Ruff
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run ruff format .
+      - poetry run ruff check --fix .
+
+  format:frontend:
+    desc: Отформатировать код фронтенда через Prettier и ESLint fix
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun run format
+      - bun run lint:fix
+
+  format:check:
+    desc: Проверить корректность форматирования без изменения файлов
+    cmds:
+      - task: format:check:backend
+      - task: format:check:frontend
+
+  format:check:backend:
+    desc: Проверить форматирование Python через Ruff
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run ruff format --check .
+
+  format:check:frontend:
+    desc: Проверить форматирование фронтенда через Prettier
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun run format:check
+
+  test:
+    desc: Запустить все тесты
+    cmds:
+      - task: test:backend
+
+  test:backend:
+    desc: Запустить тесты бэкенда (pytest)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run pytest tests/ -v
+
+  build:
+    desc: Собрать продакшен-бандл фронтенда
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun run build
+
+  dev:backend:
+    desc: Запустить FastAPI бэкенд в dev-режиме (порт 8000)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  dev:frontend:
+    desc: Запустить Vite фронтенд в dev-режиме (порт 5173)
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun run dev
+
+  data:
+    desc: Запуск ETL и сборка DuckDB (4.5M строк)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python scripts/01_init_duckdb.py
+      - poetry run python scripts/02_aggregate_profiles.py
+      - poetry run python scripts/03_enrich_roles.py
+
+  train:
+    desc: Построение эмбеддингов и обучение CatBoost ранкера
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python scripts/04_build_embeddings.py
+      - poetry run python scripts/05_train_ranker.py
+
+  up:
+    desc: Запуск All-in-one Docker контейнера (порт 8000)
+    cmds:
+      - docker compose up --build
+
+  down:
+    desc: Остановка Docker контейнеров
+    cmds:
+      - docker compose down
+
+  clean:
+    desc: Очистка временных файлов и кэша
+    cmds:
+      - find . -type d -name "__pycache__" -exec rm -rf {} +
+      - find . -type d -name ".pytest_cache" -exec rm -rf {} +
+      - find . -type d -name ".ruff_cache" -exec rm -rf {} +
+      - rm -rf .task frontend/dist frontend/tsconfig.tsbuildinfo

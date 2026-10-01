@@ -1,11 +1,13 @@
-import { SearchSuppliersRequest, SearchSuppliersResponse, LotItem } from '../types';
+import { SearchSuppliersRequest, SearchSuppliersResponse, LotItem } from "../types";
 
-const API_BASE = '/api/v1';
+const API_BASE = "/api/v1";
 
-export async function searchSuppliers(req: SearchSuppliersRequest): Promise<SearchSuppliersResponse> {
+export async function searchSuppliers(
+  req: SearchSuppliersRequest
+): Promise<SearchSuppliersResponse> {
   const res = await fetch(`${API_BASE}/suppliers/search`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
   if (!res.ok) throw new Error(`Search failed: ${res.statusText}`);

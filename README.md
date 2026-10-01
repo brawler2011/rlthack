@@ -42,13 +42,20 @@ docker compose up --build
 
 1. **Установка зависимостей:**
    ```bash
-   make setup
+   task setup
    ```
 2. **Инициализация базы данных и ML-моделей:**
    ```bash
-   make data
-   make train
+   task data
+   task train
    ```
 3. **Запуск сервисов:**
-   * Бэкенд: `make dev-backend` (http://localhost:8000)
-   * Фронтенд: `make dev-frontend` (http://localhost:5173)
+   * Бэкенд: `task dev:backend` (http://localhost:8000)
+   * Фронтенд: `task dev:frontend` (http://localhost:5173)
+
+4. **Проверка качества кода и тесты:**
+   * Проверка линтерами (Ruff + ESLint): `task lint`
+   * Форматирование кода (Ruff + Prettier): `task format`
+   * Проверка форматирования: `task format:check`
+   * Запуск тестов: `task test`
+   * Полный список доступных команд: `task --list`

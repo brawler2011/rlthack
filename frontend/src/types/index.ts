@@ -1,4 +1,4 @@
-export type SupplierRole = 'MANUFACTURER' | 'DISTRIBUTOR' | 'SUPPLIER';
+export type SupplierRole = "MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER";
 
 export interface LotItem {
   lot_id?: number;

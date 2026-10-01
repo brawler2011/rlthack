@@ -1,5 +1,7 @@
 from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     app_env: str = "development"
@@ -31,5 +33,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "ignore"
+
 
 settings = Settings()

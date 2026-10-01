@@ -1,7 +1,9 @@
 import duckdb
+
 from app.config import settings
 
 _db_conn = None
+
 
 def get_db():
     """Получение подключения к DuckDB (Read-Only для многопоточного API)"""
@@ -12,6 +14,7 @@ def get_db():
         else:
             _db_conn = duckdb.connect(":memory:")
     return _db_conn
+
 
 def close_db():
     global _db_conn
