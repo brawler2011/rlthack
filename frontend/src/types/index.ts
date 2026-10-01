@@ -1,14 +1,16 @@
 export type SupplierRole = "MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER";
 
 export interface LotItem {
-  lot_id?: number;
+  lot_id?: number | null;
   procedure_name: string;
   subject: string;
   start_price: number;
   okpd2_code: string;
   is_smp: boolean;
-  customer_kpp?: string;
-  customer_inn?: string;
+  customer_kpp?: string | null;
+  customer_inn?: string | null;
+  publish_date?: string | null;
+  procedure_id?: number | null;
 }
 
 export interface XaiFactor {
@@ -20,7 +22,7 @@ export interface XaiFactor {
 export interface SupplierItem {
   inn: string;
   kpp: string;
-  name: string;
+  name: string | null;
   role: SupplierRole;
   role_display: string;
   score: number;
@@ -29,8 +31,19 @@ export interface SupplierItem {
   avg_contract_price: number;
   is_spb_lo: boolean;
   is_smp: boolean;
-  xai_factors: XaiFactor[];
-  xai_summary: string;
+  xai: {
+    summary: string;
+    factors: XaiFactor[];
+    recommendation_level: string;
+  } | null;
+}
+
+export interface SupplierEnrichment {
+  inn: string;
+  role?: SupplierRole | null;
+  is_gisp_manufacturer?: boolean | null;
+  okved_main?: string | null;
+  status?: string | null;
 }
 
 export interface SearchSuppliersRequest {

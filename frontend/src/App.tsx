@@ -1,100 +1,134 @@
-import { useState } from "react";
-import { Search, Building2, Cpu } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, MapPin } from "lucide-react";
+import ProcurementForm from "./components/ProcurementForm";
+import { emptyFilters } from "./utils/filters";
+import type { Filters } from "./utils/filters";
+import ResultsPanel from "./components/ResultsPanel";
+import type { SearchState } from "./components/ResultsPanel";
+import SupplierDialog from "./components/SupplierDialog";
+import { searchSuppliers } from "./services/api";
+import { errorMessage } from "./utils/format";
+import type { LotItem, SupplierItem } from "./types";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"search" | "lots" | "batch">("search");
+  const [filters, setFilters] = useState<Filters>({ ...emptyFilters });
+  const [state, setState] = useState<SearchState>({ status: "idle" });
+  const [dirty, setDirty] = useState(false);
+  const [selected, setSelected] = useState<SupplierItem | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const phase = state.status === "loading" ? 2 : state.status === "success" && !dirty ? 3 : 1;
+
+  useEffect(() => () => controller.current?.abort(), []);
+
+  useEffect(() => {
+    if (state.status === "success" && window.matchMedia("(max-width: 760px)").matches) {
+      document.getElementById("results-panel")?.scrollIntoView({ block: "start" });
+    }
+  }, [state.status]);
+
+  async function search(lot: LotItem) {
+    controller.current?.abort();
+    const current = new AbortController();
+    controller.current = current;
+    setState({ status: "loading" });
+    setDirty(false);
+    try {
+      const response = await searchSuppliers(
+        {
+          lot,
+          role_filter: filters.roles.length ? filters.roles : undefined,
+          only_spb_lo: filters.onlySpb,
+          only_smp: filters.onlySmp,
+          min_win_rate: filters.minWinRate > 0 ? filters.minWinRate / 100 : undefined,
+          limit: 20,
+        },
+        current.signal
+      );
+      if (!current.signal.aborted) setState({ status: "success", response, lot, filters });
+    } catch (error) {
+      if (!current.signal.aborted) setState({ status: "error", message: errorMessage(error) });
+    }
+  }
+
+  function draftChanged() {
+    if (state.status === "success") setDirty(true);
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white font-bold text-xl">
-            Р
+    <div className="app-shell">
+      <a href="#main" className="skip-link">
+        Перейти к подбору
+      </a>
+      <header className="site-header">
+        <div className="header-inner">
+          <div className="brand">
+            <img src="/favicon.svg" width="35" height="35" alt="" />
+            <span>
+              росэлторг<span className="brand-caption">Сервис подбора контрагентов</span>
+            </span>
           </div>
-          <div>
-            <h1 className="font-semibold text-lg text-slate-900 leading-tight">
-              Росэлторг • АИС ГЗ СПб
-            </h1>
-            <p className="text-xs text-slate-500">
-              Интеллектуальный подбор поставщиков и производителей (XAI)
-            </p>
+          <div className="header-location">
+            <span className="ais-label">АИС ГЗ</span>
+            <span className="header-divider" />
+            <span>
+              <MapPin size={14} />
+              Санкт-Петербург
+            </span>
           </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <nav className="flex space-x-2">
-          <button
-            onClick={() => setActiveTab("search")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === "search"
-                ? "bg-sky-50 text-sky-700"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Подбор поставщиков
-          </button>
-          <button
-            onClick={() => setActiveTab("lots")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === "lots"
-                ? "bg-sky-50 text-sky-700"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Каталог извещений
-          </button>
-          <button
-            onClick={() => setActiveTab("batch")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === "batch"
-                ? "bg-sky-50 text-sky-700"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Фоновый робот (Batch)
-          </button>
-        </nav>
-
-        {/* Engine Status */}
-        <div className="flex items-center gap-2 text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full border border-slate-200">
-          <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-          <span>PostgreSQL + CatBoost Ranker • Local ML</span>
         </div>
       </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-800 mb-2">Параметры закупки</h2>
-          <p className="text-sm text-slate-500 mb-4">
-            Выберите извещение из базы АИС ГЗ или введите параметры нового лота для запуска
-            ML-ранжирования.
-          </p>
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Поиск по предмету закупки или коду ОКПД2..."
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
-            </div>
-            <button className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
-              Найти поставщиков
-            </button>
+      <main id="main" className="main-content">
+        <div className="intro">
+          <div>
+            <h1>
+              Подбор поставщиков<span className="heading-period">.</span>
+            </h1>
+            <p>Найдите подходящих контрагентов. Узнайте, почему они подходят.</p>
+          </div>
+          <div className="process-steps" aria-label="Этапы подбора">
+            <span
+              className={phase === 1 ? "current" : ""}
+              aria-current={phase === 1 ? "step" : undefined}
+            >
+              <i>01</i>Закупка
+            </span>
+            <ArrowRight size={13} />
+            <span
+              className={phase === 2 ? "current" : ""}
+              aria-current={phase === 2 ? "step" : undefined}
+            >
+              <i>02</i>Подбор
+            </span>
+            <ArrowRight size={13} />
+            <span
+              className={phase === 3 ? "current" : ""}
+              aria-current={phase === 3 ? "step" : undefined}
+            >
+              <i>03</i>Выбор
+            </span>
           </div>
         </div>
-
-        {/* Placeholder for Results / Table */}
-        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500 shadow-sm">
-          <Building2 className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-          <p className="text-sm font-medium text-slate-700">Готов к поиску и ранжированию</p>
-          <p className="text-xs text-slate-400 mt-1">
-            Ранжированный список с бейджами ролей (Производитель / Дистрибьютор) и SHAP-объяснениями
-          </p>
+        <div className="workspace">
+          <ProcurementForm
+            filters={filters}
+            onFiltersChange={(next) => {
+              setFilters(next);
+              draftChanged();
+            }}
+            onSearch={search}
+            onDraftChange={draftChanged}
+            onCancel={() => {
+              controller.current?.abort();
+              setState({ status: "idle" });
+            }}
+            loading={state.status === "loading"}
+          />
+          <ResultsPanel state={state} dirty={dirty} onSelect={setSelected} />
         </div>
       </main>
+      {selected && (
+        <SupplierDialog key={selected.inn} supplier={selected} onClose={() => setSelected(null)} />
+      )}
     </div>
   );
 }
