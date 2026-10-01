@@ -136,7 +136,14 @@ def download(url: str, path: Path, workers: int = 12, chunk: int = 32 << 20) -> 
     from http.client import HTTPException
     from urllib.request import Request, urlopen
 
-    size = int(urlopen(Request(url, method="HEAD"), timeout=60).headers["Content-Length"])
+    for attempt in range(10):
+        try:
+            head = urlopen(Request(url, method="HEAD"), timeout=60)
+            size = int(head.headers["Content-Length"])
+            break
+        except (OSError, HTTPException):
+            if attempt == 9:
+                raise
     path.parent.mkdir(parents=True, exist_ok=True)
     done = path.stat().st_size if path.exists() else 0
     parts = path.with_name(path.name + ".parts")
