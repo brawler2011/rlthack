@@ -1,7 +1,9 @@
 """Script 06: Offline evaluation of supplier recommendations on a time split.
 
 History = bids before the cutoff; queries = later lots with a known winner.
-Metrics: share of queries with the actual winner in the top K (Recall@K) and MRR@20.
+Strict metrics: share of queries with the actual winner in the top K (Recall@K) and MRR@20.
+Soft metrics: any actual bidder in the top K (Hit@K) and the share of bidders found in the
+top 20. Only e-shop lots list losing bidders; AIS GZ keeps just the winner.
 """
 
 import argparse
@@ -21,6 +23,7 @@ from app.ml.candidates import History, load_dataset, query_rows  # noqa: E402
 from app.ml.semantic_retriever import LotEmbeddings  # noqa: E402
 
 KS = (1, 5, 10, 20)
+SOFT_KS = (1, 10, 20)
 
 
 def parse_args():
@@ -44,6 +47,7 @@ def main():
 
     methods = ["okpd2", "vectors", "customer", "hybrid"] + (["ranker"] if model else [])
     hits = {m: defaultdict(lambda: np.zeros(len(KS) + 1)) for m in methods}
+    soft = {m: defaultdict(lambda: np.zeros(len(SOFT_KS) + 1)) for m in methods}
     counts = defaultdict(int)
     unseen = 0
     rows = query_rows(data, args.cutoff, None, args.queries, args.seed)
@@ -54,8 +58,10 @@ def main():
             counts[channel] += 1
             counts["all"] += 1
             truth = set(hist.columns(data.winners(row)).tolist())
-            if not truth:
-                unseen += 1
+            all_bidders = data.bidders(row)
+            bidders = set(hist.columns(all_bidders).tolist())
+            unseen += not truth
+            if not bidders:
                 continue
 
             r = hist.retrieve(q)
@@ -71,16 +77,21 @@ def main():
                 top = ranking[:20].tolist()
                 rank = next((i + 1 for i, c in enumerate(top) if c in truth), None)
                 row_hits = [rank is not None and rank <= k for k in KS] + [1 / rank if rank else 0]
+                found = [c in bidders for c in top]
+                soft_hits = [any(found[:k]) for k in SOFT_KS] + [sum(found) / len(all_bidders)]
                 for group in (channel, "all"):
                     hits[method][group] += np.array(row_hits)
+                    soft[method][group] += np.array(soft_hits)
 
     print(f"    winners never seen before the cutoff: {unseen} of {counts['all']} queries")
     header = "  ".join(f"R@{k:<3}" for k in KS) + "  MRR@20"
+    header += "  |  " + "  ".join(f"Hit@{k:<2}" for k in SOFT_KS) + "  Bidders@20"
     for group in ["all", *sorted(g for g in counts if g != "all")]:
         print(f"\n    {group} ({counts[group]} queries)\n    {'method':8}  {header}")
         for method in methods:
-            values = hits[method][group] / counts[group]
-            print(f"    {method:8}  " + "  ".join(f"{v:.3f}" for v in values))
+            strict = "  ".join(f"{v:.3f}" for v in hits[method][group] / counts[group])
+            loose = "  ".join(f"{v:.3f} " for v in soft[method][group] / counts[group])
+            print(f"    {method:8}  {strict}  |  {loose}")
 
 
 if __name__ == "__main__":

@@ -88,6 +88,10 @@ class Dataset:
     pref_id: np.ndarray
     prefix_weight: np.ndarray  # OKPD2 level weight per prefix id
 
+    def bidders(self, row: int) -> np.ndarray:
+        a, b = np.searchsorted(self.bid_lot, [row, row + 1])
+        return self.bid_inn[a:b]
+
     def winners(self, row: int) -> np.ndarray:
         a, b = np.searchsorted(self.bid_lot, [row, row + 1])
         return self.bid_inn[a:b][self.bid_win[a:b]]

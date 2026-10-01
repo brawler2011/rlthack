@@ -40,6 +40,7 @@ def test_history_ranks_supplier_with_similar_wins_first():
     assert hist.inns.tolist() == ["A", "B", "C"]  # the query lot's own bid is not history
     assert hist.columns(np.array(["A", "Z"])).tolist() == [0]
     assert data.winners(3).tolist() == ["A"]
+    assert data.bidders(0).tolist() == ["A", "B"]
 
     q = data.query(3, emb)
     r = hist.retrieve(q)
