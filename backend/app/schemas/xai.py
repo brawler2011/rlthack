@@ -1,13 +1,27 @@
-from pydantic import BaseModel
+from datetime import date
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class XaiFactor(BaseModel):
-    factor_name: str
-    shap_value: float
-    description: str
+    name: str = Field(description="Feature key, e.g. customer_score")
+    impact: float = Field(description="Contribution to the rank score (SHAP); > 0 pushes up")
+    text: str = Field(description="Human-readable reason with the actual value")
 
 
-class XaiReport(BaseModel):
+class EvidenceLot(BaseModel):
+    """A past lot similar to the query that the supplier bid on."""
+
+    lot_id: int
+    publish_date: date | None = None
+    subject: str | None = None
+    start_price: float | None = None
+    won: bool
+
+
+class Explanation(BaseModel):
     summary: str
+    level: Literal["HIGH", "MEDIUM", "LOW"]
     factors: list[XaiFactor]
-    recommendation_level: str  # HIGH, MEDIUM, LOW
+    evidence: list[EvidenceLot] = []

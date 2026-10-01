@@ -1,23 +1,18 @@
 from fastapi import APIRouter
 
-from app.schemas.lot import LotResponse
+from app.schemas.lot import LotCard, LotListItem
+from app.services.search_service import search_service
 
 router = APIRouter(prefix="/lots", tags=["Lots"])
 
 
-@router.get("/search", response_model=list[LotResponse])
+@router.get("/search", response_model=list[LotListItem])
 def search_lots(query: str = "", limit: int = 20):
-    """Search historical lots and procurement notices for 2024-2025."""
-    return []
+    """Find lots by subject text, lot id or registry number."""
+    return search_service.find_lots(query, limit)
 
 
-@router.get("/{lot_id}", response_model=LotResponse)
+@router.get("/{lot_id}", response_model=LotCard)
 def get_lot(lot_id: int):
-    """Get detailed information for a specific lot."""
-    return LotResponse(
-        procedure_name="Sample Procurement Procedure",
-        subject="Sample procurement subject",
-        start_price=100000.0,
-        okpd2_code="26.20",
-        is_smp=True,
-    )
+    """A lot with its items, OKPD2 codes and the real winners."""
+    return search_service.lot_card(lot_id)
