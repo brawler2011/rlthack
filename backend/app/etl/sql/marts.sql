@@ -11,7 +11,10 @@ CREATE TABLE supplier_profile (
     is_spb_lo          boolean NOT NULL,           -- region 78 or 47
     n_bids             integer NOT NULL,           -- lots with a bid
     n_wins             integer NOT NULL,           -- lots won
-    win_rate           double precision NOT NULL,
+    -- WinRate only over contested lots (2+ bidders): AIS GZ records just the winner
+    n_contested_bids   integer NOT NULL,
+    n_contested_wins   integer NOT NULL,
+    win_rate           double precision,           -- NULL without contested bids
     -- WinRate pulled towards the average: 1 win out of 1 bid must not beat 70 out of 100
     win_rate_smoothed  double precision NOT NULL,
     won_amount         numeric(20, 2),             -- total start price of lots won
@@ -50,9 +53,14 @@ CREATE TABLE supplier_text (
 );
 
 INSERT INTO supplier_profile
-WITH prior AS (
-    -- Average win share over all bids: WinRate of suppliers with little history is pulled to it.
-    SELECT avg(is_winner::int)::float8 AS p FROM bids
+WITH lot_size AS (
+    SELECT lot_id, count(*) > 1 AS contested FROM bids GROUP BY lot_id
+),
+prior AS (
+    -- Average win share in contested lots: WinRate with little history is pulled to it.
+    SELECT avg(b.is_winner::int)::float8 AS p
+    FROM bids b JOIN lot_size s USING (lot_id)
+    WHERE s.contested
 ),
 agg AS (
     SELECT
@@ -60,6 +68,8 @@ agg AS (
         mode() WITHIN GROUP (ORDER BY b.supplier_kpp)               AS main_kpp,
         count(*)                                                    AS n_bids,
         count(*) FILTER (WHERE b.is_winner)                         AS n_wins,
+        count(*) FILTER (WHERE s.contested)                         AS n_contested_bids,
+        count(*) FILTER (WHERE s.contested AND b.is_winner)         AS n_contested_wins,
         sum(l.start_price) FILTER (WHERE b.is_winner)               AS won_amount,
         avg(l.start_price) FILTER (WHERE b.is_winner)               AS avg_won_price,
         percentile_cont(0.5) WITHIN GROUP (ORDER BY l.start_price)
@@ -68,6 +78,7 @@ agg AS (
         count(DISTINCT l.customer_inn) FILTER (WHERE b.is_winner)   AS n_customers,
         count(*) FILTER (WHERE l.is_smp)                            AS n_smp_bids
     FROM bids b
+    JOIN lot_size s USING (lot_id)
     LEFT JOIN lots l USING (lot_id)
     GROUP BY b.supplier_inn
 ),
@@ -84,9 +95,11 @@ SELECT
     region_code(a.inn, a.main_kpp) IN ('78', '47'),
     a.n_bids,
     a.n_wins,
-    a.n_wins::float8 / a.n_bids,
-    -- 5 = weight of the average, as if every supplier had 5 extra average bids
-    (a.n_wins + 5 * prior.p) / (a.n_bids + 5),
+    a.n_contested_bids,
+    a.n_contested_wins,
+    a.n_contested_wins::float8 / NULLIF(a.n_contested_bids, 0),
+    -- 5 = weight of the average, as if every supplier had 5 extra average contested bids
+    (a.n_contested_wins + 5 * prior.p) / (a.n_contested_bids + 5),
     a.won_amount,
     round(a.avg_won_price, 2),
     round(a.median_won_price::numeric, 2),

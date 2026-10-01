@@ -131,7 +131,8 @@ def test_supplier_profile(db):
 
     main = profiles["7802587594"]
     assert (main["n_bids"], main["n_wins"]) == (3, 2)
-    assert main["win_rate"] == pytest.approx(2 / 3)
+    assert (main["n_contested_bids"], main["n_contested_wins"]) == (2, 1)  # lot 2 is uncontested
+    assert main["win_rate"] == pytest.approx(0.5)
     assert main["region_code"] == "78" and main["is_spb_lo"] is True
     assert float(main["won_amount"]) == 3000.50
     assert float(main["avg_won_price"]) == 1500.25
