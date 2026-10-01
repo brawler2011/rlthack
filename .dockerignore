@@ -1,0 +1,10 @@
+# Mounted as volumes or rebuilt in the image: keep them out of the build context
+data/
+backend/models/
+frontend/node_modules/
+frontend/dist/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.venv/
+.git/
