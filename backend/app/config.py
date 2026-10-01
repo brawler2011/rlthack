@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     debug: bool = True
 
-    # Пути
+    # Paths
     base_dir: Path = Path(__file__).resolve().parent.parent.parent
     data_dir: Path = base_dir / "data"
     raw_data_dir: Path = data_dir / "Данные 24-25"
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     duckdb_path: Path = processed_data_dir / "procurement.duckdb"
     static_dir: Path = Path(__file__).resolve().parent / "static"
 
-    # ML Модели
+    # ML Models
     models_dir: Path = base_dir / "backend" / "models"
     catboost_model_path: Path = models_dir / "catboost_ranker.cbm"
     embeddings_cache_path: Path = processed_data_dir / "embeddings_cache.npz"

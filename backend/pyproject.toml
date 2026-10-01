@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "rlthack-backend"
 version = "0.1.0"
-description = "Интеллектуальный сервис подбора контрагентов для АИС ГЗ СПб (Росэлторг)"
+description = "Intelligent counterparty matching service for AIS GZ SPb (Roseltorg)"
 authors = ["RLT Team"]
 readme = "README.md"
 packages = [{include = "app"}]

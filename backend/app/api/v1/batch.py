@@ -7,5 +7,5 @@ router = APIRouter(prefix="/batch", tags=["Batch"])
 
 @router.post("/simulate")
 def simulate_batch_recommendations():
-    """Симуляция работы фонового робота подбора поставщиков под свежие извещения."""
+    """Simulate background worker matching suppliers to new procurement notices."""
     return {"status": "ok", "matched_lots": batch_service.run_daily_match()}

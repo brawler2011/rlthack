@@ -1,61 +1,61 @@
-# Интеллектуальный сервис подбора контрагентов (Росэлторг)
+# Intelligent Counterparty Selection Service (Roseltorg)
 
-Сервис поиска, ранжирования и проверки релевантных поставщиков, производителей и дистрибьюторов для АИС ГЗ и электронного магазина Санкт-Петербурга.
+Search, ranking, and verification service for relevant suppliers, manufacturers, and distributors for Saint Petersburg AIS GZ and electronic store.
 
-## Стек технологий
+## Tech Stack
 * **Backend:** Python, FastAPI, DuckDB, CatBoost, Sentence-Transformers (`rubert-tiny2`), Rank-BM25, SHAP, Pydantic v2, Poetry
 * **Frontend:** React, TypeScript, Bun, Vite, Tailwind CSS, Lucide Icons, Recharts
-* **Инфраструктура:** Docker, Docker Compose (Multi-stage All-in-one сборка)
+* **Infrastructure:** Docker, Docker Compose (Multi-stage All-in-one build)
 
 ---
 
-## Архитектура решения
+## Architecture Overview
 
-1. **Оффлайн-препроцессинг (DuckDB):**
-   * Единоразовый импорт 4.5 млн строк из датасетов хакатона (Извещения, Поставщики, ТРУ).
-   * Расчет агрегированных витрин поставщиков: WinRate, объемы контрактов, средние чеки, историческая специализация по кодам ОКПД2.
-   * Обогащение реестрами (ОКВЭД, Минпромторг ГИСП) с определением ролей (*Производитель / Дистрибьютор / Поставщик*).
-   * Обучение локального `CatBoostRanker` по факту исторических побед (`is_winner`).
+1. **Offline Preprocessing (DuckDB):**
+   * One-time import of 4.5M rows from hackathon datasets (Procurement Notices, Suppliers, TRU products/works/services).
+   * Aggregation of supplier feature marts: WinRate, contract volumes, average contract values, historical specialization by OKPD2 codes.
+   * Enrichment with registries (OKVED, Minpromtorg GISP) with counterparty role classification (*Manufacturer / Distributor / General Supplier*).
+   * Local training of `CatBoostRanker` based on historical wins (`is_winner`).
 
-2. **Онлайн-инференс (< 300 мс):**
-   * **Candidate Retrieval:** Иерархический фильтр ОКПД2 (2, 4, 6 знаков) + лексический поиск BM25 + семантическая близость векторов `rubert-tiny2`.
-   * **Ранжирование:** CatBoost скоринг топ-кандидатов.
-   * **Explainable AI (XAI):** Расчет вкладов признаков через SHAP values с текстовым объяснением причин попадания в топ.
+2. **Online Inference (< 300 ms):**
+   * **Candidate Retrieval:** Hierarchical OKPD2 code filter (2, 4, 6 digits) + BM25 lexical search + semantic vector similarity via `rubert-tiny2`.
+   * **Reranking:** CatBoost scoring of top candidates.
+   * **Explainable AI (XAI):** Feature contribution computation via SHAP values with natural language justifications for top placement.
 
-3. **Веб-интерфейс:**
-   * Поиск/выбор закупки из базы или ручной ввод параметров нового лота.
-   * Интерактивные фильтры по ролям, региону (СПб/ЛО), МСП, WinRate.
-   * Детальная карточка XAI («Почему рекомендован») с графиком SHAP-факторов.
-   * Фоновый робот: мониторинг и пакетный подбор поставщиков под новые извещения.
+3. **Web Interface:**
+   * Search / select procurement notice from database or manual entry of new lot parameters.
+   * Interactive filters by counterparty roles, region (Saint Petersburg / Leningrad Region), SME (MSP) status, and WinRate.
+   * Detailed XAI card ("Why Recommended") with SHAP feature impact visualization.
+   * Background worker: automated monitoring and batch counterparty matching for newly published notices.
 
 ---
 
-## Быстрый старт
+## Quick Start
 
-### Вариант 1. Запуск через Docker Compose (Рекомендуемый для жюри)
+### Option 1: Docker Compose (Recommended for evaluation)
 ```bash
 docker compose up --build
 ```
-Приложение будет доступно по адресу: **http://localhost:8000** (API, Swagger `/docs` и Web UI на одном порту).
+The application will be accessible at: **http://localhost:8000** (API, Swagger `/docs`, and Web UI on a single port).
 
-### Вариант 2. Локальный запуск для разработки
+### Option 2: Local Development Setup
 
-1. **Установка зависимостей:**
+1. **Install dependencies:**
    ```bash
    task setup
    ```
-2. **Инициализация базы данных и ML-моделей:**
+2. **Initialize database and ML models:**
    ```bash
    task data
    task train
    ```
-3. **Запуск сервисов:**
-   * Бэкенд: `task dev:backend` (http://localhost:8000)
-   * Фронтенд: `task dev:frontend` (http://localhost:5173)
+3. **Run services:**
+   * Backend: `task dev:backend` (http://localhost:8000)
+   * Frontend: `task dev:frontend` (http://localhost:5173)
 
-4. **Проверка качества кода и тесты:**
-   * Проверка линтерами (Ruff + ESLint): `task lint`
-   * Форматирование кода (Ruff + Prettier): `task format`
-   * Проверка форматирования: `task format:check`
-   * Запуск тестов: `task test`
-   * Полный список доступных команд: `task --list`
+4. **Code quality checks and tests:**
+   * Run linters (Ruff + ESLint): `task lint`
+   * Format code (Ruff + Prettier): `task format`
+   * Check formatting: `task format:check`
+   * Run tests: `task test`
+   * View all available commands: `task --list`

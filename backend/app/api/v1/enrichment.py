@@ -7,5 +7,5 @@ router = APIRouter(prefix="/enrichment", tags=["Enrichment"])
 
 @router.get("/{inn}")
 def get_enrichment(inn: str):
-    """Детальное досье компании: ОКВЭД, реестры Минпромторга, статус МСП."""
+    """Detailed company profile: OKVED, Minpromtorg registries, SME (MSP) status."""
     return enrichment_service.get_supplier_enrichment(inn)

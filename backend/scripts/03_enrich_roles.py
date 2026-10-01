@@ -1,10 +1,10 @@
-"""Скрипт 03: Обогащение данными (ОКВЭД, статус Минпромторга ГИСП, разметка ролей)."""
+"""Script 03: Data enrichment (OKVED, Minpromtorg GISP status, counterparty role labeling)."""
 
 
 def main():
-    print(">>> [03] Обогащение поставщиков и классификация ролей...")
-    # TODO: маппинг ОКВЭД раздела C -> Производитель, 46 -> Оптовик, 47 -> Поставщик
-    print(">>> [03] Готово.")
+    print(">>> [03] Enriching suppliers and classifying roles...")
+    # TODO: Map OKVED section C -> Manufacturer, 46 -> Wholesaler, 47 -> Supplier
+    print(">>> [03] Done.")
 
 
 if __name__ == "__main__":

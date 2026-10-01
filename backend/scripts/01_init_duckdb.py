@@ -1,10 +1,10 @@
-"""Скрипт 01: Инициализация DuckDB базы данных и импорт 4.5M строк из сырых CSV."""
+"""Script 01: Initialize DuckDB database and import 4.5M rows from raw CSVs."""
 
 
 def main():
-    print(">>> [01] Инициализация DuckDB и загрузка CSV...")
+    print(">>> [01] Initializing DuckDB and loading CSVs...")
     # TODO: duckdb.connect(...), read_csv_auto(...)
-    print(">>> [01] Готово.")
+    print(">>> [01] Done.")
 
 
 if __name__ == "__main__":

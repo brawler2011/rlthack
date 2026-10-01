@@ -8,5 +8,5 @@ router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 
 @router.post("/search", response_model=SupplierSearchResponse)
 def search_suppliers(request: SupplierSearchRequest):
-    """Поиск и ранжирование поставщиков под параметры закупки."""
+    """Search and rank suppliers matching procurement parameters."""
     return search_service.search(request)
