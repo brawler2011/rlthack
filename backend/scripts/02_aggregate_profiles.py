@@ -1,4 +1,4 @@
-"""Скрипт 02: витрины поставщиков (WinRate, средний чек, опыт по ОКПД2 и заказчикам, тексты ТРУ)."""
+"""Script 02: Build supplier marts (WinRate, average check, OKPD2/customer history, TRU text)."""
 
 import sys
 from pathlib import Path
@@ -10,7 +10,7 @@ from app.etl import pipeline  # noqa: E402
 
 def main():
     with pipeline.connect() as conn:
-        with pipeline.timed("[02] Сборка витрин поставщиков"):
+        with pipeline.timed("[02] Building supplier marts"):
             pipeline.run_sql_file(conn, "marts.sql")
         conn.commit()
 

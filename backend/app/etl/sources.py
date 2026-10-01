@@ -1,11 +1,11 @@
-"""Поиск исходных CSV и определение их формата: тип файла, кодировка, разделитель."""
+"""Find the source CSVs and detect their format: file type, encoding, delimiter."""
 
 import codecs
 import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-# Тип файла узнаём по ключевой колонке, а не по имени: так не важно, как назван файл.
+# The file type is detected by a key column, not by name, so file names don't matter.
 KEY_COLUMNS = {
     "notices": "procedure_id",
     "items": "product_name",
@@ -40,7 +40,7 @@ class RawFile:
     path: Path
     columns: tuple[str, ...]
     delimiter: str
-    encoding: str  # имя кодека Python: utf-8 или cp1251
+    encoding: str  # Python codec name: utf-8 or cp1251
 
     @property
     def pg_encoding(self) -> str:
@@ -48,9 +48,9 @@ class RawFile:
 
 
 def detect_encoding(sample: bytes) -> str:
-    """UTF-8, если начало файла декодируется без ошибок, иначе cp1251."""
+    """UTF-8 if the start of the file decodes cleanly, cp1251 otherwise."""
     try:
-        # final=False: обрезанный на границе выборки многобайтный символ не считается ошибкой
+        # final=False: a multibyte char cut at the sample boundary is not an error
         codecs.getincrementaldecoder("utf-8")().decode(sample, final=False)
         return "utf-8"
     except UnicodeDecodeError:
@@ -58,11 +58,11 @@ def detect_encoding(sample: bytes) -> str:
 
 
 def inspect_file(path: Path) -> RawFile | None:
-    """Определяет тип и формат CSV по заголовку. None, если это не один из наших файлов."""
+    """Detect CSV type and format from its header. None if it is not one of our files."""
     with path.open("rb") as f:
         sample = f.read(SAMPLE_SIZE)
     encoding = detect_encoding(sample)
-    lines = sample.decode(encoding, errors="ignore").lstrip("﻿").splitlines()
+    lines = sample.decode(encoding, errors="ignore").lstrip("\ufeff").splitlines()
     if not lines:
         return None
 
@@ -74,15 +74,15 @@ def inspect_file(path: Path) -> RawFile | None:
                 continue
             missing = [c for c in REQUIRED_COLUMNS[kind] if c not in columns]
             if missing:
-                raise ValueError(f"{path.name}: похоже на «{kind}», но нет колонок {missing}")
+                raise ValueError(f"{path.name}: looks like {kind!r} but lacks columns {missing}")
             return RawFile(kind, path, columns, delimiter, encoding)
     return None
 
 
 def detect_sources(raw_dir: Path) -> dict[str, list[RawFile]]:
-    """Находит в папке (с подпапками) CSV извещений, ТРУ и поставщиков."""
+    """Find notice, TRU item and supplier CSVs in a directory (recursively)."""
     if not raw_dir.is_dir():
-        raise FileNotFoundError(f"Нет папки с исходными данными: {raw_dir}")
+        raise FileNotFoundError(f"Source data directory not found: {raw_dir}")
 
     sources: dict[str, list[RawFile]] = {kind: [] for kind in KEY_COLUMNS}
     for path in sorted(p for p in raw_dir.rglob("*") if p.suffix.lower() == ".csv"):
@@ -93,7 +93,7 @@ def detect_sources(raw_dir: Path) -> dict[str, list[RawFile]]:
     missing = [kind for kind, files in sources.items() if not files]
     if missing:
         raise FileNotFoundError(
-            f"В {raw_dir} не найдены CSV для {missing}. "
-            f"Файлы узнаются по колонкам: {', '.join(KEY_COLUMNS.values())}"
+            f"No CSVs for {missing} found in {raw_dir}. "
+            f"Files are detected by columns: {', '.join(KEY_COLUMNS.values())}"
         )
     return sources

@@ -1,4 +1,4 @@
-"""Загрузка CSV в PostgreSQL и сборка витрин: общий код скриптов 01 и 02."""
+"""Load CSVs into PostgreSQL and build marts: shared code of scripts 01 and 02."""
 
 import time
 from collections.abc import Iterator
@@ -17,7 +17,7 @@ COPY_CHUNK = 1 << 20
 
 def connect(url: str | None = None) -> psycopg.Connection:
     conn = psycopg.connect(url or settings.database_url)
-    # Агрегации по миллионам строк и построение индексов без сброса на диск
+    # Aggregations over millions of rows and index builds without spilling to disk
     conn.execute("SET work_mem = '256MB'")
     conn.execute("SET maintenance_work_mem = '512MB'")
     return conn
@@ -28,7 +28,7 @@ def timed(label: str) -> Iterator[None]:
     print(f">>> {label}...", flush=True)
     start = time.perf_counter()
     yield
-    print(f"    готово за {time.perf_counter() - start:.1f} с", flush=True)
+    print(f"    done in {time.perf_counter() - start:.1f} s", flush=True)
 
 
 def run_sql_file(conn: psycopg.Connection, name: str) -> None:
@@ -36,7 +36,7 @@ def run_sql_file(conn: psycopg.Connection, name: str) -> None:
 
 
 def load_raw(conn: psycopg.Connection, sources: dict[str, list[RawFile]]) -> None:
-    """Копирует CSV как есть в staging-таблицы stg_<тип>, все колонки — text."""
+    """Copy CSVs as is into staging tables stg_<kind>, all columns text."""
     for kind, files in sources.items():
         table = sql.Identifier(f"stg_{kind}")
         columns = list(dict.fromkeys(c for f in files for c in f.columns))
@@ -66,34 +66,34 @@ def copy_csv(conn: psycopg.Connection, table: sql.Identifier, raw: RawFile) -> N
 
 
 REPORT_QUERIES = {
-    "Строк извещений в CSV": "SELECT count(*) FROM stg_notices",
-    "Лотов после очистки": "SELECT count(*) FROM lots",
-    "Строк ТРУ в CSV": "SELECT count(*) FROM stg_items",
-    "Позиций ТРУ после очистки": "SELECT count(*) FROM lot_items",
-    "Позиций ТРУ без корректного ОКПД2": "SELECT count(*) FROM lot_items WHERE okpd2_code IS NULL",
-    "Строк участий в CSV": "SELECT count(*) FROM stg_bids",
-    "Участий после очистки (пары лот–ИНН)": "SELECT count(*) FROM bids",
-    "Участий с некорректным ИНН": (
+    "Notice rows in CSV": "SELECT count(*) FROM stg_notices",
+    "Lots after cleaning": "SELECT count(*) FROM lots",
+    "TRU rows in CSV": "SELECT count(*) FROM stg_items",
+    "TRU items after cleaning": "SELECT count(*) FROM lot_items",
+    "TRU items without a valid OKPD2": "SELECT count(*) FROM lot_items WHERE okpd2_code IS NULL",
+    "Bid rows in CSV": "SELECT count(*) FROM stg_bids",
+    "Bids after cleaning (lot-INN pairs)": "SELECT count(*) FROM bids",
+    "Bids with an invalid INN": (
         "SELECT count(*) FROM stg_bids WHERE clean_inn(supplier_inn) IS NULL"
     ),
-    "Уникальных поставщиков": "SELECT count(DISTINCT supplier_inn) FROM bids",
-    "Участий в лотах, которых нет в извещениях": (
+    "Distinct suppliers": "SELECT count(DISTINCT supplier_inn) FROM bids",
+    "Bids on lots missing from notices": (
         "SELECT count(*) FROM bids b "
         "WHERE NOT EXISTS (SELECT 1 FROM lots l WHERE l.lot_id = b.lot_id)"
     ),
-    "Лотов без участников": (
+    "Lots without bids": (
         "SELECT count(*) FROM lots l "
         "WHERE NOT EXISTS (SELECT 1 FROM bids b WHERE b.lot_id = l.lot_id)"
     ),
-    "Лотов без позиций ТРУ": (
+    "Lots without TRU items": (
         "SELECT count(*) FROM lots l "
         "WHERE NOT EXISTS (SELECT 1 FROM lot_items i WHERE i.lot_id = l.lot_id)"
     ),
-    "Лотов с участниками, но без победителя": (
+    "Lots with bids but no winner": (
         "SELECT count(*) FROM (SELECT lot_id FROM bids GROUP BY lot_id "
         "HAVING NOT bool_or(is_winner)) s"
     ),
-    "Лотов с несколькими победителями": (
+    "Lots with several winners": (
         "SELECT count(*) FROM (SELECT lot_id FROM bids GROUP BY lot_id "
         "HAVING count(*) FILTER (WHERE is_winner) > 1) s"
     ),
@@ -105,11 +105,11 @@ def load_report(conn: psycopg.Connection) -> dict[str, int]:
 
 
 def channel_report(conn: psycopg.Connection) -> list[tuple]:
-    """Пустые поля извещений в разрезе АИС ГЗ / электронный магазин."""
+    """Empty notice fields per channel (AIS GZ / e-shop)."""
     return conn.execute(
         """
         SELECT
-            coalesce(channel, '(пусто)'),
+            coalesce(channel, '(empty)'),
             count(*),
             count(*) FILTER (WHERE customer_inn IS NULL),
             count(*) FILTER (WHERE reqnum IS NULL),

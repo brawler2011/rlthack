@@ -1,5 +1,5 @@
--- Перенос из staging (все колонки text) в типизированные таблицы.
--- Строки без корректного ключа отбрасываются; сколько отброшено — печатает отчёт скрипта 01.
+-- Move data from staging (all columns text) into typed tables.
+-- Rows without a valid key are dropped; script 01 reports how many.
 
 INSERT INTO lots
 SELECT DISTINCT ON (lot_id) *
@@ -37,7 +37,7 @@ FROM (
 ) s
 WHERE lot_id IS NOT NULL;
 
--- Повторы пары (лот, ИНН) схлопываем: победа, если хоть одна строка с победой.
+-- Collapse repeated (lot, INN) pairs: a win if any of the rows is a win.
 INSERT INTO bids
 SELECT
     lot_id,

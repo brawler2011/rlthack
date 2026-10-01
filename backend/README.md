@@ -1,26 +1,27 @@
-# Backend — Интеллектуальный сервис подбора контрагентов
+# Backend — Intelligent Counterparty Selection Service
 
-FastAPI бэкенд, хранилище PostgreSQL и ML-пайплайны (CatBoost Ranker, Sentence-Transformers, SHAP).
+FastAPI backend, PostgreSQL storage, and ML pipelines (CatBoost Ranker, Sentence-Transformers, SHAP).
 
-## База данных
+## Database
 
-Схема — в `app/etl/sql/`. Скрипт `01_init_db.py` пересоздаёт её и загружает CSV, `02_aggregate_profiles.py` собирает витрины.
+The schema lives in `app/etl/sql/`. `scripts/01_init_db.py` recreates it and loads the CSVs,
+`scripts/02_aggregate_profiles.py` builds the supplier marts.
 
-| Таблица | Что в ней |
+| Table | Contents |
 | :--- | :--- |
-| `stg_notices`, `stg_items`, `stg_bids` | CSV как есть, все колонки text: для разбора, почему строка отброшена |
-| `lots` | Извещения, одна строка на лот |
-| `lot_items` | Позиции ТРУ с началами кода ОКПД2 из 2, 4 и 6 цифр |
-| `bids` | Участия: одна строка на пару (лот, ИНН), признак победы |
-| `supplier_profile` | Профиль поставщика: участия, победы, WinRate, средний чек, регион |
-| `supplier_okpd2` | Опыт поставщика по кодам ОКПД2: по ней отбираются кандидаты |
-| `supplier_customer` | Участия и победы поставщика у каждого заказчика |
-| `supplier_text` | Самые частые наименования ТРУ поставщика для текстового поиска |
+| `stg_notices`, `stg_items`, `stg_bids` | CSVs as is, all columns text: to see why a row was dropped |
+| `lots` | Procurement notices, one row per lot |
+| `lot_items` | TRU items with OKPD2 code prefixes of 2, 4 and 6 digits |
+| `bids` | Participations: one row per (lot, INN) pair with the win flag |
+| `supplier_profile` | Supplier profile: bids, wins, WinRate, average check, region |
+| `supplier_okpd2` | Supplier experience by OKPD2 code: candidates are selected from it |
+| `supplier_customer` | Supplier bids and wins per customer |
+| `supplier_text` | Most frequent TRU names of the supplier for text search |
 
-Тесты загрузки на маленьком наборе запускаются с отдельной базой (схема в ней пересоздаётся):
+Loader tests on a small dataset need a separate database (its schema gets recreated):
 
 ```bash
 TEST_DATABASE_URL=postgresql://rlthack:rlthack@localhost:5432/rlthack_test poetry run pytest tests/
 ```
 
-Подробная документация и инструкции по запуску доступны в корневом [README.md](../README.md).
+Detailed documentation and launch instructions are available in the root [README.md](../README.md).

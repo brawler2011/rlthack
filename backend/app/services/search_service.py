@@ -2,10 +2,10 @@ from app.schemas.supplier import SupplierSearchRequest, SupplierSearchResponse
 
 
 class SearchService:
-    """Оркестратор пайплайна подбора поставщиков."""
+    """Orchestrator for the supplier matching pipeline."""
 
     def search(self, request: SupplierSearchRequest) -> SupplierSearchResponse:
-        # Каркас: отбор кандидатов -> CatBoost скоринг -> XAI
+        # Pipeline scaffold: candidate retrieval -> CatBoost scoring -> XAI
         return SupplierSearchResponse(total=0, items=[], inference_time_ms=0.0)
 
 

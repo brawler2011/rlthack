@@ -1,57 +1,57 @@
--- Витрины поставщиков из очищенных таблиц lots, lot_items, bids.
--- Пересоздаются целиком; ключи и индексы — после заливки, так быстрее.
+-- Supplier marts built from the clean tables lots, lot_items, bids.
+-- Recreated from scratch; keys and indexes come after the load, it is faster.
 
 DROP TABLE IF EXISTS supplier_profile, supplier_okpd2, supplier_customer, supplier_text;
 
--- Профиль поставщика: одна строка на ИНН.
+-- Supplier profile: one row per INN.
 CREATE TABLE supplier_profile (
-    inn                text NOT NULL,              -- ключ
-    main_kpp           text,                       -- самый частый КПП в участиях
-    region_code        text,                       -- по КПП, у ИП по ИНН
-    is_spb_lo          boolean NOT NULL,           -- регион 78 или 47
-    n_bids             integer NOT NULL,           -- лотов, где участвовал
-    n_wins             integer NOT NULL,           -- лотов, где победил
+    inn                text NOT NULL,              -- key
+    main_kpp           text,                       -- most frequent KPP in bids
+    region_code        text,                       -- from KPP, from INN for individuals
+    is_spb_lo          boolean NOT NULL,           -- region 78 or 47
+    n_bids             integer NOT NULL,           -- lots with a bid
+    n_wins             integer NOT NULL,           -- lots won
     win_rate           double precision NOT NULL,
-    -- WinRate, подтянутый к средней доле побед: 1 победа из 1 участия не должна обгонять 70 из 100
+    -- WinRate pulled towards the average: 1 win out of 1 bid must not beat 70 out of 100
     win_rate_smoothed  double precision NOT NULL,
-    won_amount         numeric(20, 2),             -- сумма НМЦК выигранных лотов
-    avg_won_price      numeric(18, 2),             -- средняя НМЦК выигранных лотов («средний чек»)
+    won_amount         numeric(20, 2),             -- total start price of lots won
+    avg_won_price      numeric(18, 2),             -- average start price of lots won (average check)
     median_won_price   numeric(18, 2),
-    avg_bid_price      numeric(18, 2),             -- средняя НМЦК лотов, где участвовал
-    n_customers        integer NOT NULL,           -- разных заказчиков среди выигранных лотов
-    n_okpd2_classes    integer NOT NULL,           -- разных классов ОКПД2: широта профиля
-    -- участий в закупках только для СМП: косвенный признак, что поставщик сам СМП
+    avg_bid_price      numeric(18, 2),             -- average start price of lots with a bid
+    n_customers        integer NOT NULL,           -- distinct customers among lots won
+    n_okpd2_classes    integer NOT NULL,           -- distinct OKPD2 classes: profile breadth
+    -- bids in SME-only procurements: an indirect sign the supplier is an SME itself
     n_smp_bids         integer NOT NULL
 );
 
--- Опыт поставщика по кодам ОКПД2 на трёх уровнях: по этой таблице отбираются кандидаты.
+-- Supplier experience by OKPD2 code on three levels: candidates are selected from it.
 CREATE TABLE supplier_okpd2 (
     inn         text     NOT NULL,
-    level       smallint NOT NULL,  -- 2, 4 или 6 цифр
+    level       smallint NOT NULL,  -- 2, 4 or 6 digits
     prefix      text     NOT NULL,  -- 61 / 61.10 / 61.10.11
     n_bids      integer  NOT NULL,
     n_wins      integer  NOT NULL,
     won_amount  numeric(20, 2)
-);  -- ключ (inn, level, prefix)
+);  -- key (inn, level, prefix)
 
--- История поставщика с конкретным заказчиком.
+-- Supplier history with a specific customer.
 CREATE TABLE supplier_customer (
     inn           text    NOT NULL,
     customer_inn  text    NOT NULL,
     n_bids        integer NOT NULL,
     n_wins        integer NOT NULL
-);  -- ключ (inn, customer_inn)
+);  -- key (inn, customer_inn)
 
--- Текст для текстового поиска: самые частые наименования ТРУ из лотов поставщика.
+-- Text for text search: the most frequent TRU names from the supplier's lots.
 CREATE TABLE supplier_text (
-    inn      text    NOT NULL,  -- ключ
-    n_names  integer NOT NULL,  -- всего разных наименований
-    text     text    NOT NULL   -- до 100 самых частых, по одному на строку
+    inn      text    NOT NULL,  -- key
+    n_names  integer NOT NULL,  -- distinct names in total
+    text     text    NOT NULL   -- up to 100 most frequent, one per line
 );
 
 INSERT INTO supplier_profile
 WITH prior AS (
-    -- Средняя доля побед по всем участиям: к ней подтягиваем WinRate поставщиков с малой историей.
+    -- Average win share over all bids: WinRate of suppliers with little history is pulled to it.
     SELECT avg(is_winner::int)::float8 AS p FROM bids
 ),
 agg AS (
@@ -85,7 +85,7 @@ SELECT
     a.n_bids,
     a.n_wins,
     a.n_wins::float8 / a.n_bids,
-    -- 5 — «вес» средней доли побед, как будто у каждого есть 5 условных участий
+    -- 5 = weight of the average, as if every supplier had 5 extra average bids
     (a.n_wins + 5 * prior.p) / (a.n_bids + 5),
     a.won_amount,
     round(a.avg_won_price, 2),

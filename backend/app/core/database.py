@@ -6,8 +6,8 @@ from psycopg_pool import ConnectionPool
 
 from app.config import settings
 
-# Пул открывается при старте приложения (lifespan) без ожидания базы:
-# API поднимается, даже если PostgreSQL ещё стартует, а запросы подождут соединение.
+# The pool is opened on app startup (lifespan) without waiting for the database:
+# the API starts even while PostgreSQL is still booting, requests wait for a connection.
 pool = ConnectionPool(
     settings.database_url,
     min_size=1,
@@ -27,6 +27,6 @@ def close_db():
 
 
 def get_db() -> Iterator[Connection]:
-    """FastAPI-зависимость: соединение из пула на время запроса, строки — словари."""
+    """FastAPI dependency: a pooled connection for the request, rows as dicts."""
     with pool.connection() as conn:
         yield conn

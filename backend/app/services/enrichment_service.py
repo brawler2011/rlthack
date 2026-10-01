@@ -1,5 +1,5 @@
 class EnrichmentService:
-    """Обогащение данных по ИНН: ОКВЭД, роли, статус Минпромторга (ГИСП)."""
+    """Data enrichment by INN: OKVED, counterparty roles, Minpromtorg (GISP) registry status."""
 
     def get_supplier_enrichment(self, inn: str) -> dict:
         return {
