@@ -3,7 +3,7 @@
 Search, ranking, and verification service for relevant suppliers, manufacturers, and distributors for Saint Petersburg AIS GZ and electronic store.
 
 ## Tech Stack
-* **Backend:** Python, FastAPI, DuckDB, CatBoost, Sentence-Transformers (`rubert-tiny2`), Rank-BM25, SHAP, Pydantic v2, Poetry
+* **Backend:** Python, FastAPI, PostgreSQL, CatBoost, Sentence-Transformers (`rubert-tiny2`), Rank-BM25, SHAP, Pydantic v2, Poetry
 * **Frontend:** React, TypeScript, Bun, Vite, Tailwind CSS, Lucide Icons, Recharts
 * **Infrastructure:** Docker, Docker Compose (Multi-stage All-in-one build)
 
@@ -11,7 +11,7 @@ Search, ranking, and verification service for relevant suppliers, manufacturers,
 
 ## Architecture Overview
 
-1. **Offline Preprocessing (DuckDB):**
+1. **Offline Preprocessing (PostgreSQL):**
    * One-time import of 4.5M rows from hackathon datasets (Procurement Notices, Suppliers, TRU products/works/services).
    * Aggregation of supplier feature marts: WinRate, contract volumes, average contract values, historical specialization by OKPD2 codes.
    * Enrichment with registries (OKVED, Minpromtorg GISP) with counterparty role classification (*Manufacturer / Distributor / General Supplier*).
@@ -45,7 +45,9 @@ The application will be accessible at: **http://localhost:8000** (API, Swagger `
    task setup
    ```
 2. **Initialize database and ML models:**
+   Put the dataset CSVs into `data/Данные 24-25/` (file names don't matter: the file type is detected by its columns).
    ```bash
+   task db:up
    task data
    task train
    ```

@@ -1,23 +1,32 @@
-import duckdb
+from collections.abc import Iterator
+
+from psycopg import Connection
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from app.config import settings
 
-_db_conn = None
+# The pool is opened on app startup (lifespan) without waiting for the database:
+# the API starts even while PostgreSQL is still booting, requests wait for a connection.
+pool = ConnectionPool(
+    settings.database_url,
+    min_size=1,
+    max_size=10,
+    timeout=10,
+    open=False,
+    kwargs={"row_factory": dict_row},
+)
 
 
-def get_db():
-    """Get DuckDB connection (Read-Only for multithreaded API)."""
-    global _db_conn
-    if _db_conn is None:
-        if settings.duckdb_path.exists():
-            _db_conn = duckdb.connect(str(settings.duckdb_path), read_only=True)
-        else:
-            _db_conn = duckdb.connect(":memory:")
-    return _db_conn
+def open_db():
+    pool.open(wait=False)
 
 
 def close_db():
-    global _db_conn
-    if _db_conn is not None:
-        _db_conn.close()
-        _db_conn = None
+    pool.close()
+
+
+def get_db() -> Iterator[Connection]:
+    """FastAPI dependency: a pooled connection for the request, rows as dicts."""
+    with pool.connection() as conn:
+        yield conn

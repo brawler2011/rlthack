@@ -121,11 +121,22 @@ tasks:
     cmds:
       - bun run dev
 
+  db:up:
+    desc: Start PostgreSQL in Docker (port 5432)
+    cmds:
+      - docker compose up -d db
+
+  db:psql:
+    desc: Open psql in the project database
+    interactive: true
+    cmds:
+      - docker compose exec db psql -U rlthack -d rlthack
+
   data:
-    desc: Run ETL and build DuckDB database (4.5M rows)
+    desc: Load CSVs into PostgreSQL and build supplier marts (needs task db:up)
     dir: '{{.BACKEND_DIR}}'
     cmds:
-      - poetry run python scripts/01_init_duckdb.py
+      - poetry run python scripts/01_init_db.py
       - poetry run python scripts/02_aggregate_profiles.py
       - poetry run python scripts/03_enrich_roles.py
 

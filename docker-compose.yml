@@ -1,4 +1,22 @@
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: rlthack_db
+    environment:
+      - POSTGRES_USER=rlthack
+      - POSTGRES_PASSWORD=rlthack
+      - POSTGRES_DB=rlthack
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rlthack -d rlthack"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   web:
     build:
       context: .
@@ -10,7 +28,7 @@ services:
       - APP_ENV=production
       - APP_HOST=0.0.0.0
       - APP_PORT=8000
-      - DUCKDB_PATH=/app/data/processed/procurement.duckdb
+      - DATABASE_URL=postgresql://rlthack:rlthack@db:5432/rlthack
       - RAW_DATA_DIR=/app/data/Данные 24-25
       - PROCESSED_DATA_DIR=/app/data/processed
       - DICTIONARIES_DIR=/app/data/dictionaries
@@ -18,6 +36,9 @@ services:
     volumes:
       - ./data:/app/data
       - ./backend/models:/app/backend/models
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
@@ -25,3 +46,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  pgdata:

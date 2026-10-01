@@ -59,7 +59,7 @@ export default function App() {
         {/* Engine Status */}
         <div className="flex items-center gap-2 text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full border border-slate-200">
           <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-          <span>DuckDB + CatBoost Ranker • Local ML</span>
+          <span>PostgreSQL + CatBoost Ranker • Local ML</span>
         </div>
       </header>
 
