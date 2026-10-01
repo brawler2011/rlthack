@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rlthack_app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - DUCKDB_PATH=/app/data/processed/procurement.duckdb
+      - RAW_DATA_DIR=/app/data/Данные 24-25
+      - PROCESSED_DATA_DIR=/app/data/processed
+      - DICTIONARIES_DIR=/app/data/dictionaries
+      - CATBOOST_MODEL_PATH=/app/backend/models/catboost_ranker.cbm
+    volumes:
+      - ./data:/app/data
+      - ./backend/models:/app/backend/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
