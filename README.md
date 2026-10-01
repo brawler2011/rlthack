@@ -30,34 +30,53 @@ Search, ranking, and verification service for relevant suppliers, manufacturers,
 
 ---
 
-## Quick Start
+## Quick Start (demo)
 
-### Option 1: Docker Compose (Recommended for evaluation)
+Needs Docker (for PostgreSQL), Python 3.11 with Poetry, Bun and [Task](https://taskfile.dev).
+
 ```bash
-docker compose up --build
+task setup      # Python and frontend dependencies
+# put the dataset CSVs into data/Данные 24-25/ (file names don't matter: detected by columns)
+task pipeline   # once, ~35 min: PostgreSQL, CSV load, FNS SME registry, embeddings, ranker
+task demo       # API http://localhost:8000 (/docs) + UI http://localhost:5173
 ```
-The application will be accessible at: **http://localhost:8000** (API, Swagger `/docs`, and Web UI on a single port).
 
-### Option 2: Local Development Setup
+The API is up at once; the matching engine loads in the background for about a minute —
+`GET /api/v1/health` shows `"engine": "ready"` when search works.
 
-1. **Install dependencies:**
-   ```bash
-   task setup
-   ```
-2. **Initialize database and ML models:**
-   Put the dataset CSVs into `data/Данные 24-25/` (file names don't matter: the file type is detected by its columns).
-   ```bash
-   task db:up
-   task data
-   task train
-   ```
-3. **Run services:**
-   * Backend: `task dev:backend` (http://localhost:8000)
-   * Frontend: `task dev:frontend` (http://localhost:5173)
+| Step of `task pipeline` | Takes | Produces |
+| :--- | :--- | :--- |
+| `01_init_db` | ~1.5 min | `lots`, `lot_items`, `bids` from the CSVs + data quality report |
+| `02_aggregate_profiles` | ~1 min | supplier marts (WinRate over contested lots, OKPD2 and customer history) |
+| `03_enrich_roles --download` | ~15 min (2.1 GB download) | 490k SME registry companies of SPb / LO with roles |
+| `04_build_embeddings` | ~16 min on 4 CPU cores | vectors of 414k unique lot texts |
+| `05_train_ranker` | ~3 min | CatBoost ranker |
 
-4. **Code quality checks and tests:**
-   * Run linters (Ruff + ESLint): `task lint`
-   * Format code (Ruff + Prettier): `task format`
-   * Check formatting: `task format:check`
-   * Run tests: `task test`
-   * View all available commands: `task --list`
+`docker compose up --build` builds the all-in-one image (API + UI on :8000) and mounts `data/` and
+`backend/models/`, so run `task pipeline` first. The image pulls PyTorch and is large.
+
+## Quality
+
+Offline evaluation (`task eval`, `scripts/07_evaluate_expansion.py`): the model only sees bids
+before 2025-10-01 and ranks suppliers for 2000 later lots.
+
+| Method | Winner in top 1 | top 10 | top 20 | MRR@20 |
+| :--- | ---: | ---: | ---: | ---: |
+| OKPD2 prefixes only (baseline) | 9% | 35% | 47% | 0.17 |
+| Vectors (similar past lots) | 24% | 57% | 63% | 0.34 |
+| Vectors + customer history + OKPD2 | 30% | 61% | 68% | 0.40 |
+| **+ CatBoost ranker** | **37%** | **67%** | **73%** | **0.47** |
+
+- Any real bidder of the lot in our top 10: 74% of lots, 81% on the e-shop (only e-shop data lists
+  losing bidders).
+- 5% of winners never bid before: for them the SME registry is the source. 72% of them are in it;
+  their OKVED group is among the 10 we expect for the lot in 42% of cases.
+- Roles (manufacturer / distributor / supplier) from the registry OKVED: 60% of the suppliers in the
+  data; the rest are large companies outside the SME registry.
+
+## Development
+
+* Backend with autoreload: `task dev:backend`; frontend: `task dev:frontend`
+* Linters (Ruff + ESLint): `task lint`; formatting: `task format`, `task format:check`
+* Tests: `task test` (database tests need `TEST_DATABASE_URL`, see `backend/README.md`)
+* All commands: `task --list`
