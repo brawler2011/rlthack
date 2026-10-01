@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     raw_data_dir: Path = data_dir / "Данные 24-25"
     processed_data_dir: Path = data_dir / "processed"
     dictionaries_dir: Path = data_dir / "dictionaries"
+    rmsp_dump_path: Path = data_dir / "external" / "rmsp.zip"
     static_dir: Path = Path(__file__).resolve().parent / "static"
 
     # PostgreSQL
