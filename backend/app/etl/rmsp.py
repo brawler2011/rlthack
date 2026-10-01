@@ -133,6 +133,7 @@ def download(url: str, path: Path, workers: int = 12, chunk: int = 32 << 20) -> 
     The FNS server limits each connection to a few hundred KB/s, so one stream takes hours.
     """
     from concurrent.futures import ThreadPoolExecutor
+    from http.client import HTTPException
     from urllib.request import Request, urlopen
 
     size = int(urlopen(Request(url, method="HEAD"), timeout=60).headers["Content-Length"])
@@ -152,7 +153,7 @@ def download(url: str, path: Path, workers: int = 12, chunk: int = 32 << 20) -> 
                 request = Request(url, headers={"Range": f"bytes={a}-{b}"})
                 with urlopen(request, timeout=60) as response:
                     part.write_bytes(response.read())
-            except OSError:
+            except (OSError, HTTPException):  # dropped connections: retry the range
                 continue
         raise RuntimeError(f"Range {a}-{b} of {url} failed")
 
