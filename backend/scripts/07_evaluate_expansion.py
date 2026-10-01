@@ -15,7 +15,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np  # noqa: E402
 
 from app.etl import pipeline  # noqa: E402
-from app.ml.expansion import affinity_from_db, expand, load_registry  # noqa: E402
+from app.ml.expansion import (  # noqa: E402
+    affinity_from_db,
+    expand,
+    license_affinity_from_db,
+    load_registry,
+)
 
 KS = (1, 5, 10, 20, 50, 100)
 GROUP_KS = (1, 3, 5, 10)
@@ -39,6 +44,7 @@ GROUP BY lot_id
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cutoff", type=date.fromisoformat, default=date(2025, 10, 1))
+    parser.add_argument("--no-licenses", action="store_true", help="OKVED fit only")
     args = parser.parse_args()
 
     with pipeline.connect() as conn, pipeline.timed("[07] Reading data"):
@@ -48,6 +54,7 @@ def main():
         codes = dict(conn.execute(CODES_SQL, ([lot for lot, _, _ in cold],)).fetchall())
         registry = load_registry(conn)
         affinity = affinity_from_db(conn, args.cutoff)
+        licenses = None if args.no_licenses else license_affinity_from_db(conn, args.cutoff)
 
     exclude = np.isin(registry.inns, list(known))
     row_of = {inn: i for i, inn in enumerate(registry.inns.tolist())}
@@ -65,7 +72,7 @@ def main():
         group_ranks.append(
             min((i + 1 for i, g in enumerate(groups) if g in winner_groups), default=None)
         )
-        order, _, _ = expand(registry, affinity, lot_codes, exclude, day, top=None)
+        order, _, _ = expand(registry, affinity, lot_codes, exclude, day, None, licenses)
         pool_sizes.append(len(order))
         hits = np.flatnonzero(np.isin(order, rows))
         ranks.append(int(hits[0]) + 1 if len(hits) else None)

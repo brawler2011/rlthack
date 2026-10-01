@@ -44,7 +44,7 @@ def api_db(db):
     pipeline.run_sql_file(db, "companies_schema.sql")
     db.execute(
         "INSERT INTO companies VALUES ('7802587594', 'ООО «ВЕСЫ»', false, '78', 1, 12, "
-        "'2016-08-10', '28.29', 'Производство прочих машин', '{46.69}', '{}', 'rmsp', "
+        "'2016-08-10', '28.29', 'Производство прочих машин', '{46.69}', '{}', '{}', 'rmsp', "
         "NULL, NULL, NULL)"
     )
     pipeline.run_sql_file(db, "companies.sql")

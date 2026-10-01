@@ -19,5 +19,6 @@ ALTER TABLE companies ADD PRIMARY KEY (inn);
 CREATE INDEX companies_okved_main_idx ON companies (okved_main);
 CREATE INDEX companies_okved_extra_idx ON companies USING gin (okved_extra);
 CREATE INDEX companies_products_idx ON companies USING gin (products);
+CREATE INDEX companies_licenses_idx ON companies USING gin (licenses);
 
 ANALYZE companies;

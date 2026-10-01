@@ -69,6 +69,7 @@ def main():
                             c.okved_main_name,
                             c.okved_extra,
                             c.products,
+                            c.licenses,
                             "rmsp",
                             None,
                             None,

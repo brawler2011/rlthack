@@ -14,6 +14,7 @@ CREATE TABLE companies (
     okved_main_name  text,
     okved_extra      text[]  NOT NULL,
     products         text[]  NOT NULL,  -- codes of products the company declares it makes
+    licenses         text[]  NOT NULL,  -- licensed activities, lowercased
     source           text    NOT NULL,  -- rmsp: FNS SME registry
     role             text,              -- MANUFACTURER / DISTRIBUTOR / SUPPLIER
     role_reason      text,              -- why, for the explanation in the UI
