@@ -1,14 +1,12 @@
-class EnrichmentService:
-    """Data enrichment by INN: OKVED, counterparty roles, Minpromtorg (GISP) registry status."""
+from app.schemas.supplier import SupplierCard
+from app.services import examples
 
-    def get_supplier_enrichment(self, inn: str) -> dict:
-        return {
-            "inn": inn,
-            "role": "SUPPLIER",
-            "is_gisp_manufacturer": False,
-            "okved_main": None,
-            "status": "ACTIVE",
-        }
+
+class EnrichmentService:
+    """Company cards. Returns contract examples until the engine is wired in."""
+
+    def supplier_card(self, inn: str) -> SupplierCard:
+        return examples.supplier_card(inn)
 
 
 enrichment_service = EnrichmentService()

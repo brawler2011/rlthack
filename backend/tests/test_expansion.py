@@ -47,6 +47,7 @@ def test_expand_orders_by_learned_fit_and_skips_known_and_later():
 
     assert registry.inns[rows].tolist() == ["A", "C", "B", "D", "E"]
     assert list(scores) == sorted(scores, reverse=True)
+    assert scores[0] == 1.0 + 0.0  # one product bonus, A's OKVED 47.11 never wins such lots
     assert reasons[0] == "заявляет выпуск продукции 21.20.10"
     assert reasons[1] == "основной ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов"
     assert reasons[3].startswith("дополнительный ОКВЭД 46.46")

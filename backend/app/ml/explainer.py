@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.schemas.xai import XaiReport
+from app.schemas.xai import Explanation
 
 
 class XaiExplainer:
@@ -9,10 +9,6 @@ class XaiExplainer:
     def __init__(self, ranker_model: Any = None):
         self.ranker_model = ranker_model
 
-    def explain(self, candidate_features: dict[str, Any]) -> XaiReport:
+    def explain(self, candidate_features: dict[str, Any]) -> Explanation:
         """Generate explainability report with feature contributions."""
-        return XaiReport(
-            summary="Recommended based on contract execution track record and regional proximity.",
-            factors=[],
-            recommendation_level="HIGH",
-        )
+        return Explanation(summary="", level="MEDIUM", factors=[])

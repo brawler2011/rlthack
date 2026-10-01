@@ -126,11 +126,16 @@ def expand(
             offer(rows, share, f"основной ОКВЭД {group}: {wins}")
         if (rows := registry.by_extra.get(group)) is not None:
             offer(rows, EXTRA_OKVED_WEIGHT * share, f"дополнительный ОКВЭД {group}: {wins}")
-    for code in {c[:8] for c in okpd2_codes} | {c[:5] for c in okpd2_codes}:
+    # One bonus per company; the reason names the most specific matching code.
+    declared = np.zeros(len(registry.inns), dtype=bool)
+    codes = {c[:8] for c in okpd2_codes} | {c[:5] for c in okpd2_codes}
+    for code in sorted(codes, key=lambda c: (-len(c), c)):
         if (rows := registry.by_product.get(code)) is not None:
-            score[rows] += PRODUCT_BONUS
+            rows = rows[~declared[rows]]
+            declared[rows] = True
             why[rows] = len(reasons)
             reasons.append(f"заявляет выпуск продукции {code}")
+    score[declared] += PRODUCT_BONUS
 
     score[exclude | (registry.since_day > day)] = 0
     found = np.flatnonzero(score > 0)
