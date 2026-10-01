@@ -95,6 +95,14 @@ tasks:
     cmds:
       - poetry run pytest tests/ -v
 
+  check:
+    desc: Run all CI checks locally (linters, format checks, tests, build)
+    cmds:
+      - task: lint
+      - task: format:check
+      - task: test
+      - task: build
+
   build:
     desc: Build production frontend bundle
     dir: '{{.FRONTEND_DIR}}'
