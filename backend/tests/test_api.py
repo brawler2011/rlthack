@@ -32,6 +32,27 @@ def test_search_waits_for_the_engine(no_db):
     assert response.status_code == 503
 
 
+def test_batch_waits_for_the_engine(no_db, monkeypatch):
+    lot = {
+        "lot_id": 1,
+        "publish_date": None,
+        "subject": "x",
+        "start_price": None,
+        "channel": None,
+        "customer_inn": None,
+    }
+
+    class Conn:
+        def execute(self, *_):
+            return self
+
+        def fetchall(self):
+            return [lot]
+
+    app.dependency_overrides[get_db] = lambda: Conn()
+    assert client.post("/api/v1/batch/simulate").status_code == 503
+
+
 def test_search_needs_exactly_one_lot(no_db):
     assert client.post("/api/v1/suppliers/search", json={}).status_code == 422
     both = {"lot_id": 1, "lot": {"subject": "Картриджи"}}
