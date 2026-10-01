@@ -37,7 +37,7 @@ Needs Docker (for PostgreSQL), Python 3.11 with Poetry, Bun and [Task](https://t
 ```bash
 task setup      # Python and frontend dependencies
 # put the dataset CSVs into data/Данные 24-25/ (file names don't matter: detected by columns)
-task pipeline   # once, ~35 min: PostgreSQL, CSV load, FNS SME registry, embeddings, ranker
+task pipeline   # once, ~45 min: PostgreSQL, CSV load, FNS SME registry, embeddings, ranker
 task demo       # API http://localhost:8000 (/docs) + UI http://localhost:5173
 ```
 
@@ -50,27 +50,35 @@ The API is up at once; the matching engine loads in the background for about a m
 | `02_aggregate_profiles` | ~1 min | supplier marts (WinRate over contested lots, OKPD2 and customer history) |
 | `03_enrich_roles --download` | ~15 min (2.1 GB download) | 490k SME registry companies of SPb / LO with roles |
 | `04_build_embeddings` | ~16 min on 4 CPU cores | vectors of 414k unique lot texts |
-| `05_train_ranker` | ~3 min | CatBoost ranker |
+| `05_train_ranker` | ~11 min | CatBoost ranker |
 
 `docker compose up --build` builds the all-in-one image (API + UI on :8000) and mounts `data/` and
 `backend/models/`, so run `task pipeline` first. The image pulls PyTorch and is large.
 
 ## Quality
 
-Offline evaluation (`task eval`, `scripts/07_evaluate_expansion.py`): the model only sees bids
-before 2025-10-01 and ranks suppliers for 2000 later lots.
+Offline evaluation (`task eval`, `scripts/07_evaluate_expansion.py`): 2000 random lots published
+after 2025-10-01. For each lot the model sees only bids before the start of the lot's month, as the
+API does. The ranker is trained on July–September 2025; its settings were picked on a validation
+split (trained on April–June, checked on July–September) without looking at these lots.
 
 | Method | Winner in top 1 | top 10 | top 20 | MRR@20 |
 | :--- | ---: | ---: | ---: | ---: |
-| OKPD2 prefixes only (baseline) | 9% | 35% | 47% | 0.17 |
-| Vectors (similar past lots) | 24% | 57% | 63% | 0.34 |
-| Vectors + customer history + OKPD2 | 30% | 61% | 68% | 0.40 |
-| **+ CatBoost ranker** | **37%** | **67%** | **73%** | **0.47** |
+| OKPD2 prefixes only (baseline) | 9% | 36% | 48% | 0.18 |
+| Vectors (similar past lots) | 21% | 56% | 66% | 0.32 |
+| Vectors + customer history + OKPD2 | 28% | 62% | 70% | 0.39 |
+| **+ CatBoost ranker** | **42%** | **73%** | **79%** | **0.52** |
 
-- Any real bidder of the lot in our top 10: 74% of lots, 81% on the e-shop (only e-shop data lists
+- The previous ranker scored 38% / 70% / 75% at top 1 / 10 / 20 under the same evaluation. The gain
+  comes from repeat purchases (whether the supplier won this customer's lots most similar to the
+  query, and how long ago), a pool of 200 candidates instead of 100 (on validation the winner is in
+  it for 82% of lots instead of 74%) and the QuerySoftMax loss.
+- Any real bidder of the lot in our top 10: 80% of lots, 87% on the e-shop (only e-shop data lists
   losing bidders).
 - 5% of winners never bid before: for them the SME registry is the source. 72% of them are in it;
-  their OKVED group is among the 10 we expect for the lot in 42% of cases.
+  their OKVED group is among the 10 we expect for the lot in 42% of cases. With licenses from
+  the registry, such a winner is among the top 100 suggested new companies for 1.6% of these lots
+  (1.0% without): a hard case, the pool has ~350k companies.
 - Roles (manufacturer / distributor / supplier) from the registry OKVED: 60% of the suppliers in the
   data; the rest are large companies outside the SME registry.
 

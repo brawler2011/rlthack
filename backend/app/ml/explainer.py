@@ -13,10 +13,12 @@ GROUPS = {
     "similar_lots": ("vec_score", "vec_rank"),
     "okpd2": ("okpd2_score", "okpd2_rank"),
     "customer": ("customer_score", "customer_rank"),
+    "repeat": ("cust_sim_win", "cust_sim_rank", "cust_days_since_win", "cust_sim_bid"),
     "agreement": ("fused_score",),
     "volume": ("log_bids", "log_wins"),
     "win_rate": ("win_rate_smoothed", "log_contested_bids"),
     "recency": ("days_since_win", "log_recent_wins"),
+    "activity": ("days_since_bid", "log_active_bids"),
     "price": ("price_gap", "abs_price_gap"),
     "channel": ("channel_share",),
     "smp": ("smp_share", "smp_lot_x_share"),
@@ -36,6 +38,9 @@ class Facts:
     similar_bids: int = 0
     customer_wins: int = 0
     customer_bids: int = 0
+    repeat_win_sim: float = float("nan")  # best similarity of a lot it won at this customer
+    repeat_bid_sim: float = float("nan")
+    repeat_days: float = float("nan")  # since its last win at this customer
     okpd2_group: str | None = None
     wins: int = 0
     bids: int = 0
@@ -43,6 +48,8 @@ class Facts:
     win_rate: float | None = None
     days_since_win: float = float("nan")
     recent_wins: int = 0
+    days_since_bid: float = float("nan")
+    active_bids: int = 0
     typical_check: float | None = None
     lot_price: float | None = None
     channel: str | None = None
@@ -64,6 +71,7 @@ def plural(n: int, forms: tuple[str, str, str]) -> str:
 
 WINS = ("победа", "победы", "побед")
 BIDS = ("участия", "участий", "участий")  # «из N участий»: genitive after «из»
+BIDS_NOMINATIVE = ("участие", "участия", "участий")
 CUSTOMERS = ("заказчиком", "заказчиками", "заказчиками")
 
 
@@ -85,6 +93,22 @@ def describe(group: str, f: Facts) -> str | None:
             return "Не работал с этим заказчиком"
         wins, bids = plural(f.customer_wins, WINS), plural(f.customer_bids, BIDS)
         return f"{wins} у этого заказчика из {bids}"
+    if group == "repeat":
+        if not np.isnan(f.repeat_win_sim):
+            text = f"Выигрывал у этого заказчика похожий лот (сходство {f.repeat_win_sim:.0%})"
+            if not np.isnan(f.repeat_days):
+                text += f", последняя победа у него {int(f.repeat_days)} дн. назад"
+            return text
+        if not np.isnan(f.repeat_bid_sim):
+            return f"Участвовал у этого заказчика в похожем лоте (сходство {f.repeat_bid_sim:.0%})"
+        return "Похожих лотов у этого заказчика не выигрывал"
+    if group == "activity":
+        if np.isnan(f.days_since_bid):
+            return None
+        return (
+            f"Последнее участие {int(f.days_since_bid)} дн. назад, "
+            f"{plural(f.active_bids, BIDS_NOMINATIVE)} за последние 30 дней"
+        )
     if group == "agreement":
         return "Найден сразу несколькими способами подбора"
     if group == "volume":
@@ -92,7 +116,7 @@ def describe(group: str, f: Facts) -> str | None:
     if group == "win_rate":
         if not f.contested_bids:
             return "Нет участий в конкурентных лотах"
-        bids = plural(f.contested_bids, ("участие", "участия", "участий"))
+        bids = plural(f.contested_bids, BIDS_NOMINATIVE)
         return f"Доля побед в конкурентных лотах {f.win_rate:.0%} ({bids})"
     if group == "recency":
         if np.isnan(f.days_since_win):

@@ -43,3 +43,18 @@ def test_explain_without_positive_factors():
     assert explanation.level == "LOW"
     assert explanation.factors == []
     assert explanation.summary == "Слабое совпадение с историей"
+
+
+def test_explain_repeat_purchase_and_activity():
+    shap = np.zeros(len(FEATURES))
+    shap[FEATURES.index("cust_sim_rank")] = 0.7
+    shap[FEATURES.index("log_active_bids")] = 0.2
+    facts = Facts(repeat_win_sim=0.934, repeat_days=45, days_since_bid=3, active_bids=12)
+
+    texts = [f.text for f in explain(shap, facts, relevance=0.9).factors]
+
+    assert texts == [
+        "Выигрывал у этого заказчика похожий лот (сходство 93%), "
+        "последняя победа у него 45 дн. назад",
+        "Последнее участие 3 дн. назад, 12 участий за последние 30 дней",
+    ]

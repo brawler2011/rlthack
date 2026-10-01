@@ -148,7 +148,7 @@ tasks:
       - poetry run python scripts/05_train_ranker.py
 
   pipeline:
-    desc: "Everything the demo needs, once (~35 min): data, SME registry, embeddings, ranker"
+    desc: "Everything the demo needs, once (~45 min): data, SME registry, embeddings, ranker"
     cmds:
       - task: db:up
       - task: data
