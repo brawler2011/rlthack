@@ -60,7 +60,8 @@ def main():
     model.save_model(str(settings.catboost_model_path))
     print(f"    saved to {settings.catboost_model_path}")
 
-    importance = sorted(zip(model.get_feature_importance(), FEATURES, strict=True), reverse=True)
+    values = model.get_feature_importance(type="PredictionValuesChange")
+    importance = sorted(zip(values, FEATURES, strict=True), reverse=True)
     print("    top features: " + ", ".join(f"{name} {value:.1f}" for value, name in importance[:8]))
 
 
