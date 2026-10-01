@@ -1,5 +1,26 @@
 # Backend — Интеллектуальный сервис подбора контрагентов
 
-FastAPI бэкенд, DuckDB хранилище и ML-пайплайны (CatBoost Ranker, Sentence-Transformers, SHAP).
+FastAPI бэкенд, хранилище PostgreSQL и ML-пайплайны (CatBoost Ranker, Sentence-Transformers, SHAP).
+
+## База данных
+
+Схема — в `app/etl/sql/`. Скрипт `01_init_db.py` пересоздаёт её и загружает CSV, `02_aggregate_profiles.py` собирает витрины.
+
+| Таблица | Что в ней |
+| :--- | :--- |
+| `stg_notices`, `stg_items`, `stg_bids` | CSV как есть, все колонки text: для разбора, почему строка отброшена |
+| `lots` | Извещения, одна строка на лот |
+| `lot_items` | Позиции ТРУ с началами кода ОКПД2 из 2, 4 и 6 цифр |
+| `bids` | Участия: одна строка на пару (лот, ИНН), признак победы |
+| `supplier_profile` | Профиль поставщика: участия, победы, WinRate, средний чек, регион |
+| `supplier_okpd2` | Опыт поставщика по кодам ОКПД2: по ней отбираются кандидаты |
+| `supplier_customer` | Участия и победы поставщика у каждого заказчика |
+| `supplier_text` | Самые частые наименования ТРУ поставщика для текстового поиска |
+
+Тесты загрузки на маленьком наборе запускаются с отдельной базой (схема в ней пересоздаётся):
+
+```bash
+TEST_DATABASE_URL=postgresql://rlthack:rlthack@localhost:5432/rlthack_test poetry run pytest tests/
+```
 
 Подробная документация и инструкции по запуску доступны в корневом [README.md](../README.md).

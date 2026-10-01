@@ -3,7 +3,7 @@
 Сервис поиска, ранжирования и проверки релевантных поставщиков, производителей и дистрибьюторов для АИС ГЗ и электронного магазина Санкт-Петербурга.
 
 ## Стек технологий
-* **Backend:** Python, FastAPI, DuckDB, CatBoost, Sentence-Transformers (`rubert-tiny2`), Rank-BM25, SHAP, Pydantic v2, Poetry
+* **Backend:** Python, FastAPI, PostgreSQL, CatBoost, Sentence-Transformers (`rubert-tiny2`), Rank-BM25, SHAP, Pydantic v2, Poetry
 * **Frontend:** React, TypeScript, Bun, Vite, Tailwind CSS, Lucide Icons, Recharts
 * **Инфраструктура:** Docker, Docker Compose (Multi-stage All-in-one сборка)
 
@@ -11,7 +11,7 @@
 
 ## Архитектура решения
 
-1. **Оффлайн-препроцессинг (DuckDB):**
+1. **Оффлайн-препроцессинг (PostgreSQL):**
    * Единоразовый импорт 4.5 млн строк из датасетов хакатона (Извещения, Поставщики, ТРУ).
    * Расчет агрегированных витрин поставщиков: WinRate, объемы контрактов, средние чеки, историческая специализация по кодам ОКПД2.
    * Обогащение реестрами (ОКВЭД, Минпромторг ГИСП) с определением ролей (*Производитель / Дистрибьютор / Поставщик*).
@@ -45,7 +45,9 @@ docker compose up --build
    task setup
    ```
 2. **Инициализация базы данных и ML-моделей:**
+   Положите CSV датасета в `data/Данные 24-25/` (имена файлов не важны: тип узнаётся по колонкам).
    ```bash
+   task db:up
    task data
    task train
    ```

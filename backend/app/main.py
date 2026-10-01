@@ -6,13 +6,13 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.config import settings
-from app.core.database import close_db, get_db
+from app.core.database import close_db, open_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Инициализация / проверка базы данных DuckDB
-    get_db()
+    # Пул соединений с PostgreSQL
+    open_db()
     yield
     # Закрытие ресурсов
     close_db()

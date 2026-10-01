@@ -15,8 +15,10 @@ class Settings(BaseSettings):
     raw_data_dir: Path = data_dir / "Данные 24-25"
     processed_data_dir: Path = data_dir / "processed"
     dictionaries_dir: Path = data_dir / "dictionaries"
-    duckdb_path: Path = processed_data_dir / "procurement.duckdb"
     static_dir: Path = Path(__file__).resolve().parent / "static"
+
+    # PostgreSQL
+    database_url: str = "postgresql://rlthack:rlthack@localhost:5432/rlthack"
 
     # ML Модели
     models_dir: Path = base_dir / "backend" / "models"

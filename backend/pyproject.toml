@@ -12,7 +12,7 @@ fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.31.0"}
 pydantic = "^2.9.0"
 pydantic-settings = "^2.5.0"
-duckdb = "^1.1.0"
+psycopg = {extras = ["binary", "pool"], version = "^3.2.0"}
 polars = "^1.9.0"
 catboost = "^1.2.26"
 shap = "^0.46.0"
@@ -30,6 +30,9 @@ ruff = "^0.6.9"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

@@ -113,11 +113,22 @@ tasks:
     cmds:
       - bun run dev
 
+  db:up:
+    desc: Поднять PostgreSQL в Docker (порт 5432)
+    cmds:
+      - docker compose up -d db
+
+  db:psql:
+    desc: Открыть psql в базе проекта
+    interactive: true
+    cmds:
+      - docker compose exec db psql -U rlthack -d rlthack
+
   data:
-    desc: Запуск ETL и сборка DuckDB (4.5M строк)
+    desc: Загрузка CSV в PostgreSQL и сборка витрин (нужен task db:up)
     dir: '{{.BACKEND_DIR}}'
     cmds:
-      - poetry run python scripts/01_init_duckdb.py
+      - poetry run python scripts/01_init_db.py
       - poetry run python scripts/02_aggregate_profiles.py
       - poetry run python scripts/03_enrich_roles.py
 
