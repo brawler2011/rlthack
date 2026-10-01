@@ -4,15 +4,15 @@ from app.schemas.xai import XaiReport
 
 
 class XaiExplainer:
-    """Генерация факторов объяснимости (Explainable AI) на основе SHAP values."""
+    """Explainable AI (XAI) factor generation based on SHAP values."""
 
     def __init__(self, ranker_model: Any = None):
         self.ranker_model = ranker_model
 
     def explain(self, candidate_features: dict[str, Any]) -> XaiReport:
-        """Формирует отчет объяснимости со списком вкладов признаков."""
+        """Generate explainability report with feature contributions."""
         return XaiReport(
-            summary="Рекомендован на основе опыта исполнения контрактов и региональности.",
+            summary="Recommended based on contract execution track record and regional proximity.",
             factors=[],
             recommendation_level="HIGH",
         )

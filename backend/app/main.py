@@ -11,16 +11,16 @@ from app.core.database import close_db, get_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Инициализация / проверка базы данных DuckDB
+    # Initialize / verify DuckDB database
     get_db()
     yield
-    # Закрытие ресурсов
+    # Close resources
     close_db()
 
 
 app = FastAPI(
-    title="Росэлторг • Интеллектуальный сервис подбора поставщиков АИС ГЗ",
-    description="API рекомендательного сервиса и Explainable AI (XAI) для подбора контрагентов",
+    title="Roseltorg • Intelligent Counterparty Selection Service AIS GZ",
+    description="Recommendation service and Explainable AI (XAI) API for counterparty matching",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -34,10 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключение API маршрутов
+# Register API routes
 app.include_router(api_router)
 
-# Раздача статики фронтенда (если сбилжен)
+# Serve frontend static assets (if built)
 if settings.static_dir.exists():
     app.mount("/", StaticFiles(directory=str(settings.static_dir), html=True), name="static")
 

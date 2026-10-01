@@ -6,7 +6,7 @@ _db_conn = None
 
 
 def get_db():
-    """Получение подключения к DuckDB (Read-Only для многопоточного API)"""
+    """Get DuckDB connection (Read-Only for multithreaded API)."""
     global _db_conn
     if _db_conn is None:
         if settings.duckdb_path.exists():

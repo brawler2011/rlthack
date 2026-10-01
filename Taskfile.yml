@@ -6,115 +6,115 @@ vars:
 
 tasks:
   default:
-    desc: Показать список доступных команд
+    desc: Show list of available commands
     cmds:
       - task --list
 
   setup:
-    desc: Установить зависимости для бэкенда (Poetry) и фронтенда (Bun)
+    desc: Install dependencies for backend (Poetry) and frontend (Bun)
     cmds:
       - task: setup:backend
       - task: setup:frontend
 
   setup:backend:
-    desc: Установить зависимости бэкенда через Poetry
+    desc: Install backend dependencies via Poetry
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry install
 
   setup:frontend:
-    desc: Установить зависимости фронтенда через Bun
+    desc: Install frontend dependencies via Bun
     dir: '{{.FRONTEND_DIR}}'
     cmds:
       - bun install
 
   lint:
-    desc: Запустить все линтеры (Ruff для Python, ESLint для фронтенда)
+    desc: Run all linters (Ruff for Python, ESLint for frontend)
     cmds:
       - task: lint:backend
       - task: lint:frontend
 
   lint:backend:
-    desc: Запустить проверку линтером Ruff для Python
+    desc: Run Ruff linter check for Python
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run ruff check .
 
   lint:frontend:
-    desc: Запустить проверку ESLint для фронтенда
+    desc: Run ESLint check for frontend
     dir: '{{.FRONTEND_DIR}}'
     cmds:
       - bun run lint
 
   format:
-    desc: Отформатировать весь код (Ruff для бэкенда, Prettier для фронтенда)
+    desc: Format all code (Ruff for backend, Prettier for frontend)
     cmds:
       - task: format:backend
       - task: format:frontend
 
   format:backend:
-    desc: Отформатировать Python-код через Ruff
+    desc: Format Python code via Ruff
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run ruff format .
       - poetry run ruff check --fix .
 
   format:frontend:
-    desc: Отформатировать код фронтенда через Prettier и ESLint fix
+    desc: Format frontend code via Prettier and ESLint fix
     dir: '{{.FRONTEND_DIR}}'
     cmds:
       - bun run format
       - bun run lint:fix
 
   format:check:
-    desc: Проверить корректность форматирования без изменения файлов
+    desc: Check code formatting without modifying files
     cmds:
       - task: format:check:backend
       - task: format:check:frontend
 
   format:check:backend:
-    desc: Проверить форматирование Python через Ruff
+    desc: Check Python formatting via Ruff
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run ruff format --check .
 
   format:check:frontend:
-    desc: Проверить форматирование фронтенда через Prettier
+    desc: Check frontend formatting via Prettier
     dir: '{{.FRONTEND_DIR}}'
     cmds:
       - bun run format:check
 
   test:
-    desc: Запустить все тесты
+    desc: Run all tests
     cmds:
       - task: test:backend
 
   test:backend:
-    desc: Запустить тесты бэкенда (pytest)
+    desc: Run backend tests (pytest)
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run pytest tests/ -v
 
   build:
-    desc: Собрать продакшен-бандл фронтенда
+    desc: Build production frontend bundle
     dir: '{{.FRONTEND_DIR}}'
     cmds:
       - bun run build
 
   dev:backend:
-    desc: Запустить FastAPI бэкенд в dev-режиме (порт 8000)
+    desc: Run FastAPI backend in dev mode (port 8000)
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
   dev:frontend:
-    desc: Запустить Vite фронтенд в dev-режиме (порт 5173)
+    desc: Run Vite frontend in dev mode (port 5173)
     dir: '{{.FRONTEND_DIR}}'
     cmds:
       - bun run dev
 
   data:
-    desc: Запуск ETL и сборка DuckDB (4.5M строк)
+    desc: Run ETL and build DuckDB database (4.5M rows)
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run python scripts/01_init_duckdb.py
@@ -122,24 +122,24 @@ tasks:
       - poetry run python scripts/03_enrich_roles.py
 
   train:
-    desc: Построение эмбеддингов и обучение CatBoost ранкера
+    desc: Build embeddings and train CatBoost ranker
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - poetry run python scripts/04_build_embeddings.py
       - poetry run python scripts/05_train_ranker.py
 
   up:
-    desc: Запуск All-in-one Docker контейнера (порт 8000)
+    desc: Start all-in-one Docker container (port 8000)
     cmds:
       - docker compose up --build
 
   down:
-    desc: Остановка Docker контейнеров
+    desc: Stop Docker containers
     cmds:
       - docker compose down
 
   clean:
-    desc: Очистка временных файлов и кэша
+    desc: Clean temporary files and caches
     cmds:
       - find . -type d -name "__pycache__" -exec rm -rf {} +
       - find . -type d -name ".pytest_cache" -exec rm -rf {} +

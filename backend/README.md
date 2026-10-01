@@ -1,5 +1,5 @@
-# Backend — Интеллектуальный сервис подбора контрагентов
+# Backend — Intelligent Counterparty Selection Service
 
-FastAPI бэкенд, DuckDB хранилище и ML-пайплайны (CatBoost Ranker, Sentence-Transformers, SHAP).
+FastAPI backend, DuckDB storage, and ML pipelines (CatBoost Ranker, Sentence-Transformers, SHAP).
 
-Подробная документация и инструкции по запуску доступны в корневом [README.md](../README.md).
+Detailed documentation and launch instructions are available in the root [README.md](../README.md).
