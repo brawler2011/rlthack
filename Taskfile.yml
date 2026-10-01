@@ -147,6 +147,12 @@ tasks:
       - poetry run python scripts/04_build_embeddings.py
       - poetry run python scripts/05_train_ranker.py
 
+  eval:
+    desc: Evaluate supplier recommendations on a time split (Recall@K, MRR)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python scripts/06_evaluate.py
+
   up:
     desc: Start all-in-one Docker container (port 8000)
     cmds:

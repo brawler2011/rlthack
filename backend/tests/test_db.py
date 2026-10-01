@@ -17,12 +17,12 @@ requires_db = pytest.mark.skipif(not TEST_DATABASE_URL, reason="TEST_DATABASE_UR
 
 # Notices: UTF-8, ';' delimiter. Lot 1 is repeated, lot 'abc' has a broken id.
 NOTICES = """\
-procedure_id;lot_id;start_price;reqnum;procedure_name;subject;is_smp;customer_inn;customer_kpp;is_eshop_or_aisgz
-10;1;1000.50;0172200004923000344;Поставка бумаги;Бумага А4;true;7814096706;781401001;АИС ГЗ
-11;2;2000;;Ремонт техники;Ремонт;false;;;Электронный магазин
-12;3;3000.00;0172200004923000345;Картриджи;Картриджи;false;7801140073;780101001;АИС ГЗ
-10;1;1000.50;0172200004923000344;Поставка бумаги;Бумага А4;true;7814096706;781401001;АИС ГЗ
-13;abc;10;;Мусор;Мусор;false;;;АИС ГЗ
+publish_date;procedure_id;lot_id;start_price;reqnum;procedure_name;subject;is_smp;customer_inn;customer_kpp;is_eshop_or_aisgz
+2024-03-01;10;1;1000.50;0172200004923000344;Бумага;Бумага А4;true;7814096706;781401001;АИС ГЗ
+2024-03-02;11;2;2000;;Ремонт техники;Ремонт;false;;;Электронный магазин
+2024-03-03;12;3;3000.00;0172200004923000345;Картриджи;Картриджи;false;7801140073;780101001;АИС ГЗ
+2024-03-01;10;1;1000.50;0172200004923000344;Бумага;Бумага А4;true;7814096706;781401001;АИС ГЗ
+;13;abc;10;;Мусор;Мусор;false;;;АИС ГЗ
 """
 
 # TRU items: cp1251, ',' delimiter, a comma inside quotes, code 33.12.1 has no 'kind' level.
@@ -104,6 +104,7 @@ def test_clean_tables(db):
     assert [lot["lot_id"] for lot in lots] == [1, 2, 3]
     assert lots[0]["reqnum"] == "0172200004923000344"  # leading zero kept
     assert lots[0]["is_smp"] is True
+    assert str(lots[0]["publish_date"]) == "2024-03-01"
     assert lots[1]["customer_inn"] is None and lots[1]["reqnum"] is None
 
     items = fetch(db, "SELECT * FROM lot_items ORDER BY lot_id, product_name")
@@ -130,7 +131,8 @@ def test_supplier_profile(db):
 
     main = profiles["7802587594"]
     assert (main["n_bids"], main["n_wins"]) == (3, 2)
-    assert main["win_rate"] == pytest.approx(2 / 3)
+    assert (main["n_contested_bids"], main["n_contested_wins"]) == (2, 1)  # lot 2 is uncontested
+    assert main["win_rate"] == pytest.approx(0.5)
     assert main["region_code"] == "78" and main["is_spb_lo"] is True
     assert float(main["won_amount"]) == 3000.50
     assert float(main["avg_won_price"]) == 1500.25

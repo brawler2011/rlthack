@@ -1,13 +1,36 @@
-from typing import Any
+"""CatBoost ranker that reorders retrieved candidates using the features from candidates.py."""
+
+from pathlib import Path
+
+import numpy as np
+
+from app.ml.candidates import FEATURES
 
 
-class CatBoostRankerService:
-    """Candidate reranking using CatBoostRanker / Classifier."""
+def train(features: np.ndarray, labels: np.ndarray, groups: np.ndarray, iterations: int = 600):
+    from catboost import CatBoostRanker, Pool  # heavy import, only when needed
 
-    def __init__(self, model_path: str = None):
-        self.model_path = model_path
-        self.model = None
+    model = CatBoostRanker(
+        loss_function="YetiRank",
+        iterations=iterations,
+        learning_rate=0.1,
+        depth=6,
+        random_seed=42,
+        verbose=100,
+        allow_writing_files=False,  # no catboost_info/ logs in the working directory
+    )
+    model.fit(Pool(features, labels, group_id=groups, feature_names=list(FEATURES)))
+    return model
 
-    def predict_scores(self, features: list[dict[str, Any]]) -> list[float]:
-        """Return ranked relevance scores for candidates."""
-        return [0.0] * len(features)
+
+def load(path: Path):
+    from catboost import CatBoostRanker
+
+    model = CatBoostRanker()
+    model.load_model(str(path))
+    return model
+
+
+def rerank(model, candidates: np.ndarray, features: np.ndarray) -> np.ndarray:
+    """Candidates ordered by the model score, best first."""
+    return candidates[np.argsort(-model.predict(features), kind="stable")]

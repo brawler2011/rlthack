@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     # ML Models
     models_dir: Path = base_dir / "backend" / "models"
     catboost_model_path: Path = models_dir / "catboost_ranker.cbm"
-    embeddings_cache_path: Path = processed_data_dir / "embeddings_cache.npz"
-    transformer_model_name: str = "cointegrated/rubert-tiny2"
+    embeddings_dir: Path = processed_data_dir / "embeddings"
+    transformer_model_name: str = "sergeyzh/rubert-tiny-turbo"
 
     cors_origins: list[str] = [
         "http://localhost:3000",
