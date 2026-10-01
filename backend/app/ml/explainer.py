@@ -1,8 +1,11 @@
 from typing import Any
+
 from app.schemas.xai import XaiReport
+
 
 class XaiExplainer:
     """Генерация факторов объяснимости (Explainable AI) на основе SHAP values."""
+
     def __init__(self, ranker_model: Any = None):
         self.ranker_model = ranker_model
 
@@ -11,5 +14,5 @@ class XaiExplainer:
         return XaiReport(
             summary="Рекомендован на основе опыта исполнения контрактов и региональности.",
             factors=[],
-            recommendation_level="HIGH"
+            recommendation_level="HIGH",
         )

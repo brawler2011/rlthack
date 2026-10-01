@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.config import settings
 from app.api.router import api_router
-from app.core.database import get_db, close_db
+from app.config import settings
+from app.core.database import close_db, get_db
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,6 +16,7 @@ async def lifespan(app: FastAPI):
     yield
     # Закрытие ресурсов
     close_db()
+
 
 app = FastAPI(
     title="Росэлторг • Интеллектуальный сервис подбора поставщиков АИС ГЗ",
@@ -40,4 +43,7 @@ if settings.static_dir.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
+
+    uvicorn.run(
+        "app.main:app", host=settings.app_host, port=settings.app_port, reload=settings.debug
+    )

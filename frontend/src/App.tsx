@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Search, Building2, ShieldCheck, Cpu } from 'lucide-react';
+import { useState } from "react";
+import { Search, Building2, Cpu } from "lucide-react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'lots' | 'batch'>('search');
+  const [activeTab, setActiveTab] = useState<"search" | "lots" | "batch">("search");
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -25,31 +25,31 @@ export default function App() {
         {/* Navigation Tabs */}
         <nav className="flex space-x-2">
           <button
-            onClick={() => setActiveTab('search')}
+            onClick={() => setActiveTab("search")}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'search'
-                ? 'bg-sky-50 text-sky-700'
-                : 'text-slate-600 hover:text-slate-900'
+              activeTab === "search"
+                ? "bg-sky-50 text-sky-700"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             Подбор поставщиков
           </button>
           <button
-            onClick={() => setActiveTab('lots')}
+            onClick={() => setActiveTab("lots")}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'lots'
-                ? 'bg-sky-50 text-sky-700'
-                : 'text-slate-600 hover:text-slate-900'
+              activeTab === "lots"
+                ? "bg-sky-50 text-sky-700"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             Каталог извещений
           </button>
           <button
-            onClick={() => setActiveTab('batch')}
+            onClick={() => setActiveTab("batch")}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'batch'
-                ? 'bg-sky-50 text-sky-700'
-                : 'text-slate-600 hover:text-slate-900'
+              activeTab === "batch"
+                ? "bg-sky-50 text-sky-700"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             Фоновый робот (Batch)
@@ -66,11 +66,10 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-800 mb-2">
-            Параметры закупки
-          </h2>
+          <h2 className="text-base font-semibold text-slate-800 mb-2">Параметры закупки</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Выберите извещение из базы АИС ГЗ или введите параметры нового лота для запуска ML-ранжирования.
+            Выберите извещение из базы АИС ГЗ или введите параметры нового лота для запуска
+            ML-ранжирования.
           </p>
           <div className="flex gap-3">
             <div className="relative flex-1">

@@ -38,6 +38,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 bun.lockb
+*.tsbuildinfo
 .env.local
 .env.*.local
 
@@ -67,3 +68,4 @@ huggingface/
 *.swp
 *.swo
 .env
+.task/
