@@ -54,12 +54,13 @@ def main():
         codes = dict(conn.execute(CODES_SQL, ([lot for lot, _, _ in cold],)).fetchall())
         registry = load_registry(conn)
         affinity = affinity_from_db(conn, args.cutoff)
-        licenses = None if args.no_licenses else license_affinity_from_db(conn, args.cutoff)
+        license_fit = license_affinity_from_db(conn, args.cutoff)
+    licenses = None if args.no_licenses else license_fit
 
     exclude = np.isin(registry.inns, list(known))
     row_of = {inn: i for i, inn in enumerate(registry.inns.tolist())}
     in_registry = available = 0
-    ranks, group_ranks, pool_sizes = [], [], []
+    ranks, group_ranks, pool_sizes, licensed = [], [], [], []
     for lot, day, inns in cold:
         rows = [row_of[i] for i in inns if i in row_of]
         in_registry += bool(rows)
@@ -74,6 +75,7 @@ def main():
         )
         order, _, _ = expand(registry, affinity, lot_codes, exclude, day, None, licenses)
         pool_sizes.append(len(order))
+        licensed.append(bool(license_fit.for_codes(lot_codes)))
         hits = np.flatnonzero(np.isin(order, rows))
         ranks.append(int(hits[0]) + 1 if len(hits) else None)
 
@@ -86,12 +88,16 @@ def main():
 
     def recall(values, ks):
         return "  ".join(
-            f"@{k}: {sum(r is not None and r <= k for r in values) / n:.3f}" for k in ks
+            f"@{k}: {sum(r is not None and r <= k for r in values) / len(values):.3f}" for k in ks
         )
 
     print(f"    winner's OKVED group among expected groups:   {recall(group_ranks, GROUP_KS)}")
     print(f"    winner among suggested new companies:         {recall(ranks, KS)}")
     print("    (shares of all cold lots)")
+    if any(licensed):
+        subset = [r for r, lic in zip(ranks, licensed, strict=True) if lic]
+        print(f"    lots where licenses matter: {len(subset)} ({len(subset) / n:.1%}),")
+        print(f"      winner among suggested new companies:       {recall(subset, KS)}")
 
 
 if __name__ == "__main__":

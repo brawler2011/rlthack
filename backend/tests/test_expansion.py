@@ -1,6 +1,12 @@
 import numpy as np
 
-from app.ml.expansion import expand, learn_affinity, learn_license_affinity, load_registry
+from app.ml.expansion import (
+    expand,
+    learn_affinity,
+    learn_license_affinity,
+    load_registry,
+    short_license,
+)
 
 
 class FakeConn:
@@ -88,4 +94,20 @@ def test_license_lifts_its_holders_within_a_group():
     assert reasons[1] == (
         "основной ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов; "
         "лицензия «фармацевтическая деятельность»: её владельцы выигрывают 25% похожих лотов"
+    )
+
+
+def test_short_license_drops_clarifications():
+    assert (
+        short_license(
+            "медицинская деятельность (за исключением указанной деятельности, осуществляемой "
+            "медицинскими организациями (в том числе частными))"
+        )
+        == "медицинская деятельность"
+    )
+    assert short_license("образовательная деятельность, осуществляемая организациями") == (
+        "образовательная деятельность"
+    )
+    assert short_license("размещение отходов i - iv классов опасности") == (
+        "размещение отходов I - IV классов опасности"
     )
