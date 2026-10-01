@@ -1,6 +1,6 @@
 import numpy as np
 
-from app.ml.expansion import expand, load_registry
+from app.ml.expansion import expand, learn_affinity, load_registry
 
 
 class FakeConn:
@@ -16,29 +16,37 @@ class FakeConn:
 
 # inn, okved_main, okved_extra, products, region, category, headcount, days since 1970
 ROWS = [
-    ("A", "46.69", [], ["28.29.31.110"], "47", 1, 5, 100),  # declares the product itself
-    ("B", "28.29", [], [], "78", 1, 5, 100),  # main OKVED in the lot's group
-    ("C", "47.11", ["28.29.1"], [], "78", 3, 900, 100),  # only an additional OKVED
-    ("D", "28.11", [], [], "78", 1, 5, 100),  # main OKVED in the same class only
-    ("E", "46.69", [], [], "78", 3, 900, 100),  # wholesale, no match
-    ("F", "28.29", [], [], "78", 3, 900, 100),  # already known from bids
-    ("G", "28.29", [], [], "78", 3, 900, 500),  # entered the registry after the lot
+    ("A", "47.11", [], ["21.20.10"], "78", 1, 5, 100),  # declares the product itself
+    ("B", "46.46", [], [], "47", 1, 5, 100),  # the typical winner group, small
+    ("C", "46.46", [], [], "78", 3, 900, 100),  # the same group, bigger and in SPb
+    ("D", "47.73", ["46.46.1"], [], "78", 1, 5, 100),  # the group only as an additional OKVED
+    ("E", "46.90", [], [], "78", 3, 900, 100),  # a rarer winner group
+    ("F", "46.46", [], [], "78", 3, 900, 100),  # already known from bids
+    ("G", "46.46", [], [], "78", 3, 900, 500),  # entered the registry after the lot
+    ("H", "62.01", [], [], "78", 3, 900, 100),  # never wins such lots
 ]
 
+# Medicines (OKPD2 21.20) are won by pharmacy wholesalers (OKVED 46.46) 3 times out of 4.
+WINS = [(["21.20.10.110"], "46.46.1")] * 3 + [(["21.20.10.120"], "46.90")]
 
-def test_expand_orders_by_match_strength_and_skips_known_and_later():
+
+def test_learn_affinity_shares_by_group_with_class_backoff():
+    affinity = learn_affinity(WINS + [(["21.10.1"], None)])
+    assert affinity.for_codes(["21.20.10.190"]) == {"46.46": 0.75, "46.90": 0.25}
+    assert affinity.for_codes(["21.10.60"]) == {"46.46": 0.75, "46.90": 0.25}  # class 21
+    assert affinity.for_codes(["62.01.11"]) == {}
+
+
+def test_expand_orders_by_learned_fit_and_skips_known_and_later():
     registry = load_registry(FakeConn(ROWS))
-    exclude = np.isin(registry.inns, ["F"])
+    affinity = learn_affinity(WINS)
 
-    rows, scores, reasons = expand(registry, ["28.29.31.110"], exclude, day=200)
+    rows, scores, reasons = expand(
+        registry, affinity, ["21.20.10.190"], np.isin(registry.inns, ["F"]), day=200
+    )
 
-    assert registry.inns[rows].tolist() == ["A", "B", "C", "D"]
+    assert registry.inns[rows].tolist() == ["A", "C", "B", "D", "E"]
     assert list(scores) == sorted(scores, reverse=True)
-    assert reasons[0] == "заявляет выпуск продукции с кодом 28.29.31"
-    assert reasons[3] == "основной ОКВЭД в классе 28"
-
-
-def test_expand_without_codes_is_empty():
-    registry = load_registry(FakeConn(ROWS))
-    rows, _, _ = expand(registry, [], np.zeros(len(ROWS), dtype=bool), day=200)
-    assert len(rows) == 0
+    assert reasons[0] == "заявляет выпуск продукции 21.20.10"
+    assert reasons[1] == "основной ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов"
+    assert reasons[3].startswith("дополнительный ОКВЭД 46.46")

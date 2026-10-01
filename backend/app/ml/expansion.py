@@ -1,22 +1,21 @@
-"""New suppliers outside the bidding history: registry companies whose activity matches the lot.
+"""New suppliers outside the bidding history: registry companies whose activity fits the lot.
 
-A company matches through the lot's OKPD2 codes: products it declares in the SME registry
-(strongest), its main OKVED group (XX.XX), an additional OKVED group, or its main OKVED class (XX).
-OKPD2 and OKVED share the first digits for the same kind of goods and services.
+OKPD2 codes of goods rarely share digits with the OKVED of those who supply them (medicines are
+won by wholesalers with OKVED 46.46), so the fit is learned from history: for each OKPD2 group,
+the share of wins taken by companies of each main OKVED group. A registry company scores that
+share for its main OKVED group, half of it for an additional one, plus a bonus when it declares
+making a product with the lot's code. Size, region and age only break ties inside a group.
 """
 
-from collections import defaultdict
+from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import numpy as np
 
-MATCH_WEIGHTS = {"product": 4.0, "main_group": 3.0, "extra_group": 1.5, "main_class": 1.0}
-REASONS = {
-    "product": "заявляет выпуск продукции с кодом {code}",
-    "main_group": "основной ОКВЭД в группе {code}",
-    "extra_group": "дополнительный ОКВЭД в группе {code}",
-    "main_class": "основной ОКВЭД в классе {code}",
-}
+EXTRA_OKVED_WEIGHT = 0.5
+PRODUCT_BONUS = 1.0
+MIN_WINS = 3  # OKPD2 keys with fewer wins fall back to the class level
 
 REGISTRY_SQL = """
 SELECT inn, okved_main, okved_extra, products, region_code, msp_category, headcount,
@@ -26,45 +25,81 @@ FROM companies ORDER BY inn
 
 
 @dataclass
+class OkvedAffinity:
+    shares: dict[str, dict[str, float]]  # OKPD2 group (XX.XX) or class (XX) -> OKVED group -> share
+
+    def for_codes(self, okpd2_codes: list[str]) -> dict[str, float]:
+        """Share of wins per OKVED group for a lot: by OKPD2 group, else by class."""
+        result: dict[str, float] = {}
+        for code in okpd2_codes:
+            table = self.shares.get(code[:5]) or self.shares.get(code[:2]) or {}
+            for group, share in table.items():
+                result[group] = max(result.get(group, 0.0), share)
+        return result
+
+
+def learn_affinity(wins: Iterable[tuple[list[str], str | None]]) -> OkvedAffinity:
+    """wins: OKPD2 codes of a won lot and the winner's main OKVED."""
+    counts: dict[str, Counter] = defaultdict(Counter)
+    for codes, okved in wins:
+        if okved:
+            for key in {c[:5] for c in codes} | {c[:2] for c in codes}:
+                counts[key][okved[:5]] += 1
+    return OkvedAffinity(
+        {
+            key: {group: n / sum(c.values()) for group, n in c.items()}
+            for key, c in counts.items()
+            if sum(c.values()) >= MIN_WINS
+        }
+    )
+
+
+@dataclass
 class Registry:
     inns: np.ndarray
+    main_group: np.ndarray  # main OKVED group per company, "" if unknown
     since_day: np.ndarray  # in the registry since, days since 1970-01-01
-    prior: np.ndarray  # tie-breaker within a match level: size, region, age
-    index: dict[tuple[str, str], np.ndarray]  # (match kind, code) -> company rows
+    prior: np.ndarray  # in [0, 1): orders companies with equal scores
+    by_main: dict[str, np.ndarray]  # OKVED group -> rows
+    by_extra: dict[str, np.ndarray]
+    by_product: dict[str, np.ndarray]  # product code prefix (XX.XX or XX.XX.XX) -> rows
 
 
 def load_registry(conn) -> Registry:
     rows = conn.execute(REGISTRY_SQL).fetchall()
-    index = defaultdict(list)
+    by_main, by_extra, by_product = defaultdict(list), defaultdict(list), defaultdict(list)
     for i, (_, main, extra, products, *_) in enumerate(rows):
         if main:
-            index["main_group", main[:5]].append(i)
-            index["main_class", main[:2]].append(i)
-        for code in {e[:5] for e in extra}:
-            index["extra_group", code].append(i)
+            by_main[main[:5]].append(i)
+        for group in {e[:5] for e in extra} - {(main or "")[:5]}:
+            by_extra[group].append(i)
         for code in {p[:8] for p in products} | {p[:5] for p in products}:
-            index["product", code].append(i)
+            by_product[code].append(i)
 
     category = np.array([r[5] or 0 for r in rows], dtype=float)
     headcount = np.array([r[6] or 0 for r in rows], dtype=float)
     spb = np.array([r[4] == "78" for r in rows], dtype=float)
     since = np.array([r[7] if r[7] is not None else 0 for r in rows], dtype=np.int64)
-    years = (since.max() - since) / 365 if len(since) else since
-    prior = (
-        0.1 * category + 0.05 * np.log1p(headcount) / 7 + 0.1 * spb + 0.02 * np.minimum(years, 10)
-    )
+    years = np.minimum((since.max(initial=0) - since) / 365, 10)
+    prior = 0.3 * category / 3 + 0.2 * np.log1p(headcount) / 7 + 0.3 * spb + 0.2 * years / 10
+
+    def arrays(index):
+        return {key: np.array(rows_, dtype=np.int64) for key, rows_ in index.items()}
+
     return Registry(
         inns=np.array([r[0] for r in rows]),
+        main_group=np.array([(r[1] or "")[:5] for r in rows]),
         since_day=since,
-        # Scaled below the smallest gap between match weights (0.5): it only orders companies
-        # inside the same match level.
-        prior=0.4 * prior / max(prior.max(initial=0.0), 1e-9),
-        index={key: np.array(rows_, dtype=np.int64) for key, rows_ in index.items()},
+        prior=np.clip(prior, 0, 0.999),
+        by_main=arrays(by_main),
+        by_extra=arrays(by_extra),
+        by_product=arrays(by_product),
     )
 
 
 def expand(
     registry: Registry,
+    affinity: OkvedAffinity,
     okpd2_codes: list[str],
     exclude: np.ndarray,
     day: int,
@@ -76,27 +111,29 @@ def expand(
     day: the lot date, companies that entered the registry later are skipped.
     """
     score = np.zeros(len(registry.inns))
-    reason_kind: dict[int, tuple[float, str, str]] = {}
-    for code in okpd2_codes:
-        for kind, key in (
-            ("product", code[:8]),
-            ("product", code[:5]),
-            ("main_group", code[:5]),
-            ("extra_group", code[:5]),
-            ("main_class", code[:2]),
-        ):
-            rows = registry.index.get((kind, key))
-            if rows is None:
-                continue
-            weight = MATCH_WEIGHTS[kind] * (1.0 if len(key) > 5 or kind != "product" else 0.75)
-            better = weight > score[rows]
-            score[rows] = np.maximum(score[rows], weight)
-            for r in rows[better].tolist():
-                reason_kind[r] = (weight, kind, key)
+    reasons: list[str] = []  # texts; why[row] points into it, built only for the shown companies
+    why = np.full(len(registry.inns), -1)
+
+    def offer(rows, value, text):
+        better = rows[value > score[rows]]
+        score[better] = value
+        why[better] = len(reasons)
+        reasons.append(text)
+
+    for group, share in affinity.for_codes(okpd2_codes).items():
+        wins = f"такие компании выигрывают {share:.0%} похожих лотов"
+        if (rows := registry.by_main.get(group)) is not None:
+            offer(rows, share, f"основной ОКВЭД {group}: {wins}")
+        if (rows := registry.by_extra.get(group)) is not None:
+            offer(rows, EXTRA_OKVED_WEIGHT * share, f"дополнительный ОКВЭД {group}: {wins}")
+    for code in {c[:8] for c in okpd2_codes} | {c[:5] for c in okpd2_codes}:
+        if (rows := registry.by_product.get(code)) is not None:
+            score[rows] += PRODUCT_BONUS
+            why[rows] = len(reasons)
+            reasons.append(f"заявляет выпуск продукции {code}")
 
     score[exclude | (registry.since_day > day)] = 0
     found = np.flatnonzero(score > 0)
-    total = score[found] + registry.prior[found]
-    order = found[np.argsort(-total, kind="stable")][:top]  # top=None keeps all
-    reasons = [REASONS[reason_kind[r][1]].format(code=reason_kind[r][2]) for r in order.tolist()]
-    return order, score[order] + registry.prior[order], reasons
+    # Lexicographic: the score first, the prior only orders companies with equal scores.
+    order = found[np.lexsort((-registry.prior[found], -score[found]))][:top]  # top=None: all
+    return order, score[order], [reasons[i] for i in why[order].tolist()]
