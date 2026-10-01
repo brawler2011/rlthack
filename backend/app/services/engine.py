@@ -83,6 +83,8 @@ class Engine:
             self.affinity = affinity_from_db(conn)
             self.licenses = license_affinity_from_db(conn)
         self.model = ranker.load(settings.catboost_model_path)
+        if list(self.model.feature_names_) != list(FEATURES):
+            raise RuntimeError("The ranker was trained on other features: rerun 05_train_ranker")
         self.encoder = load_model()
         self.today = int(self.data.lot_day.max()) + 1
         self._snapshots: dict[int, Snapshot] = {}
