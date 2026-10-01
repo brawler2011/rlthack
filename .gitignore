@@ -54,6 +54,7 @@ data/processed/*.duckdb
 data/processed/*.npz
 data/processed/*.parquet
 data/processed/embeddings/
+data/external/
 data/dictionaries/*.tmp
 
 # ML models & cache
