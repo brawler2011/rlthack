@@ -7,13 +7,15 @@ import numpy as np
 from app.ml.candidates import FEATURES
 
 
-def train(features: np.ndarray, labels: np.ndarray, groups: np.ndarray, iterations: int = 1500):
+def train(features: np.ndarray, labels: np.ndarray, groups: np.ndarray, iterations: int = 600):
     from catboost import CatBoostRanker, Pool  # heavy import, only when needed
 
     model = CatBoostRanker(
-        loss_function="YetiRank",
+        # Softmax over each lot's candidates: one right answer per group, as with the winner.
+        # On validation it matched YetiRank at top 1 and beat it at top 5-20, 2.5x faster.
+        loss_function="QuerySoftMax",
         iterations=iterations,
-        learning_rate=0.05,
+        learning_rate=0.1,
         depth=6,
         random_seed=42,
         verbose=100,

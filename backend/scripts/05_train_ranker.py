@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument("--start", type=date.fromisoformat, default=date(2025, 7, 1))
     parser.add_argument("--until", type=date.fromisoformat, default=date(2025, 10, 1))
     parser.add_argument("--queries", type=int, default=4000)
-    parser.add_argument("--iterations", type=int, default=1500)
+    parser.add_argument("--iterations", type=int, default=600)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
