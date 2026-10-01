@@ -20,6 +20,7 @@ TOP_TEXTS = 30
 TOP_PER_SOURCE = 100
 SPB_LO = ("78", "47")
 RECENT_DAYS = 90
+ACTIVE_DAYS = 30
 
 FEATURES = (
     "vec_score",
@@ -42,6 +43,12 @@ FEATURES = (
     "smp_lot_x_share",
     "spb_share",
     "log_customers",
+    "cust_sim_win",
+    "cust_sim_rank",
+    "cust_days_since_win",
+    "cust_sim_bid",
+    "days_since_bid",
+    "log_active_bids",
 )
 
 LOTS_SQL = """
@@ -226,6 +233,12 @@ class History:
             data.lot_customer[lot][known], col[known], win[known], len(data.customers), n
         )
         self.stats = self._supplier_stats(lot, col, win, data.bid_spb[keep], n)
+        # Bids grouped by customer: who won this customer's lots most similar to the query.
+        order = np.argsort(data.lot_customer[lot][known], kind="stable")
+        self.cust_key = data.lot_customer[lot][known][order]
+        self.cust_lot = lot[known][order]
+        self.cust_col = col[known][order]
+        self.cust_win = win[known][order]
 
     def columns(self, inns: np.ndarray) -> np.ndarray:
         """Columns of the given INNs that exist in this history."""
@@ -254,8 +267,9 @@ class History:
         contested = (np.bincount(lot, minlength=len(d.lot_ids)) > 1)[lot]
         contested_bids, contested_wins = total(contested), total(contested & win)
         prior = contested_wins.sum() / max(contested_bids.sum(), 1.0)
-        last_win = np.full(n, -np.inf)
+        last_win, last_bid = np.full(n, -np.inf), np.full(n, -np.inf)
         np.maximum.at(last_win, col[win], day[win])
+        np.maximum.at(last_bid, col, day)
         price = d.lot_log_price[lot]
         priced = win & ~np.isnan(price)
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -269,6 +283,8 @@ class History:
             "contested_wins": contested_wins,
             "win_rate": (contested_wins + 5 * prior) / (contested_bids + 5),
             "last_win": last_win,
+            "last_bid": last_bid,
+            "active_bids": total(day >= self.cutoff_day - ACTIVE_DAYS),
             "recent_wins": total(win & (day >= self.cutoff_day - RECENT_DAYS)),
             "won_price": won_price,
             "channel_share": np.stack(
@@ -293,6 +309,34 @@ class History:
         candidates = history.top_suppliers(fused, TOP_PER_SOURCE)
         return Retrieval(scores, rankings, fused, candidates, rows, sims)
 
+    def _customer_features(self, q: Query, c: np.ndarray) -> list[np.ndarray]:
+        """Repeat purchases: the candidate's past lots at this customer most similar to the query.
+
+        Similarity of its best won and best bid lot, the rank of that won lot among all the
+        customer's lots by similarity (1 = the most similar) and days since its last win there.
+        """
+        best_win, rank, since, best_bid = (np.full(len(c), np.nan) for _ in range(4))
+        a, b = np.searchsorted(self.cust_key, [q.customer, q.customer + 1])
+        if q.customer < 0 or a == b:
+            return [best_win, rank, since, best_bid]
+        lots, uniq = self.cust_lot[a:b], np.unique(self.cust_lot[a:b])
+        sims = self.emb.vectors[self.emb.lot_text_ids[uniq]] @ q.vector
+        lot_rank = np.empty(len(uniq))
+        lot_rank[np.argsort(-sims, kind="stable")] = np.arange(1, len(uniq) + 1)
+        at = np.searchsorted(uniq, lots)
+        slot = np.full(len(self.inns), -1)
+        slot[c] = np.arange(len(c))
+        mine = slot[self.cust_col[a:b]]
+        bid = mine >= 0
+        won = bid & self.cust_win[a:b]
+        np.fmax.at(best_bid, mine[bid], sims[at[bid]])
+        np.fmax.at(best_win, mine[won], sims[at[won]])
+        np.fmin.at(rank, mine[won], lot_rank[at[won]])
+        last = np.full(len(c), -np.inf)
+        np.maximum.at(last, mine[won], self.data.lot_day[lots[won]])
+        since = np.where(np.isfinite(last), q.day - last, np.nan)
+        return [best_win, rank, since, best_bid]
+
     def features(self, q: Query, r: Retrieval) -> np.ndarray:
         """(candidates x FEATURES) matrix; NaN where a value is unknown."""
         c, s = r.candidates, self.stats
@@ -302,6 +346,7 @@ class History:
             rank[ranking] = np.arange(1, len(ranking) + 1)
             ranks.append(rank[c])
         since = q.day - s["last_win"][c]
+        since_bid = q.day - s["last_bid"][c]
         gap = s["won_price"][c] - q.log_price
         channel = s["channel_share"][c, q.channel] if q.channel >= 0 else np.full(len(c), np.nan)
         columns = [
@@ -321,6 +366,9 @@ class History:
             s["smp_share"][c] * q.smp,
             s["spb_share"][c],
             np.log1p(s["customers"][c]),
+            *self._customer_features(q, c),
+            since_bid,
+            np.log1p(s["active_bids"][c]),
         ]
         return np.column_stack(columns).astype(np.float32)
 
