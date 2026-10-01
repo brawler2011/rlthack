@@ -15,7 +15,7 @@ def main():
         conn.commit()
 
         for table, rows in pipeline.mart_sizes(conn).items():
-            print(f"    {table}: {rows:_}".replace("_", " "))
+            print(f"    {table}: " + f"{rows:_}".replace("_", " "))
 
 
 if __name__ == "__main__":

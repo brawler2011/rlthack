@@ -14,6 +14,7 @@ KEY_COLUMNS = {
 
 REQUIRED_COLUMNS = {
     "notices": (
+        "publish_date",
         "procedure_id",
         "lot_id",
         "start_price",

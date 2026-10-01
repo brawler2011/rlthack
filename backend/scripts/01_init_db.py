@@ -29,7 +29,7 @@ def main():
 
         print(">>> [01] Load report:")
         for label, value in pipeline.load_report(conn).items():
-            print(f"    {label}: {value:_}".replace("_", " "))
+            print(f"    {label}: " + f"{value:_}".replace("_", " "))
 
         print(">>> [01] Notices by channel (total / no customer INN / no reqnum / no start price):")
         for channel, total, no_customer, no_reqnum, no_price in pipeline.channel_report(conn):
