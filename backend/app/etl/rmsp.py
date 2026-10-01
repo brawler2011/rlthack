@@ -33,6 +33,7 @@ class Company:
     okved_main_name: str | None
     okved_extra: list[str]
     products: list[str]  # declared product codes
+    licenses: list[str]  # licensed activities, lowercased
 
 
 def _date(value: str | None) -> date | None:
@@ -68,6 +69,13 @@ def parse_document(xml: str) -> Company | None:
         okved_main_name=main.get("НаимОКВЭД") if main is not None else None,
         okved_extra=[e.get("КодОКВЭД") for e in doc.findall("СвОКВЭД/СвОКВЭДДоп")],
         products=[p.get("КодПрод") for p in doc.findall("СвПрод") if p.get("КодПрод")],
+        licenses=sorted(
+            {
+                " ".join(vd.text.split()).lower()
+                for vd in doc.findall("СвЛиценз/НаимЛицВД")
+                if vd.text and vd.text.strip()
+            }
+        ),
     )
 
 

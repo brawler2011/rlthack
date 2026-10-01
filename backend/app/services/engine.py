@@ -16,7 +16,12 @@ from app.config import settings
 from app.etl import pipeline
 from app.ml import ranker
 from app.ml.candidates import FEATURES, History, Query, load_dataset
-from app.ml.expansion import affinity_from_db, expand, load_registry
+from app.ml.expansion import (
+    affinity_from_db,
+    expand,
+    license_affinity_from_db,
+    load_registry,
+)
 from app.ml.explainer import Facts, explain
 from app.ml.semantic_retriever import LotEmbeddings, encode, load_model
 from app.ml.text import lot_text
@@ -76,6 +81,7 @@ class Engine:
             self.data = load_dataset(conn, self.emb)
             self.registry = load_registry(conn)
             self.affinity = affinity_from_db(conn)
+            self.licenses = license_affinity_from_db(conn)
         self.model = ranker.load(settings.catboost_model_path)
         self.encoder = load_model()
         self.today = int(self.data.lot_day.max()) + 1
@@ -282,7 +288,9 @@ class Engine:
     def _new_suppliers(self, conn, snap: Snapshot, codes, day: int, limit: int):
         if not limit or not codes:
             return []
-        rows, scores, reasons = expand(self.registry, self.affinity, codes, snap.known, day, limit)
+        rows, scores, reasons = expand(
+            self.registry, self.affinity, codes, snap.known, day, limit, self.licenses
+        )
         inns = self.registry.inns[rows].tolist()
         companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (inns,)).fetchall()}
         result = []
