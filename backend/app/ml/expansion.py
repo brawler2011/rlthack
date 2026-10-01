@@ -10,6 +10,7 @@ Licenses narrow a group for regulated goods: the share of wins taken by holders 
 (pharmacy, medical, waste) is learned the same way and adds to the score of its holders.
 """
 
+import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ PRODUCT_BONUS = 1.0
 LICENSE_WEIGHT = 0.5
 MIN_WINS = 3  # OKPD2 keys with fewer wins fall back to the class level
 MIN_LIFT = 3  # a license counts for a lot if its winners hold it this much more often than usual
+MIN_LICENSE_SHARE = 0.05  # and at least this share of the lot's winners holds it
 
 WINS_SQL = """
 SELECT array_agg(DISTINCT i.okpd2_code), c.okved_main
@@ -99,17 +101,37 @@ def learn_affinity(wins: Iterable[tuple[list[str], str | None]]) -> Affinity:
 def learn_license_affinity(wins: Iterable[tuple[list[str], list[str]]]) -> Affinity:
     """wins: OKPD2 codes of a won lot and the winner's licenses (winners without any count too).
 
-    Only licenses that winners of the key hold more often than winners overall are kept.
+    Only licenses that winners of the key hold often and more often than winners overall are kept.
     """
     wins = list(wins)
     overall = _shares((["00"], licenses) for _, licenses in wins).shares.get("00", {})
     fit = _shares(wins)
     return Affinity(
         {
-            key: {lic: s for lic, s in table.items() if s >= MIN_LIFT * overall[lic]}
+            key: {
+                lic: s
+                for lic, s in table.items()
+                if s >= max(MIN_LICENSE_SHARE, MIN_LIFT * overall[lic])
+            }
             for key, table in fit.shares.items()
         }
     )
+
+
+_PARENS = re.compile(r"\s*\([^()]*\)")
+_TAIL = re.compile(r",\s*(?:за исключением|осуществляем|лицензируем)")
+_ROMAN = re.compile(r"\b(?:i{1,3}|iv|v)\b")
+
+
+def short_license(name: str, limit: int = 130) -> str:
+    """License name for people: without clarifications in brackets and «, за исключением…»."""
+    while (text := _PARENS.sub("", name)) != name:
+        name = text
+    text = _TAIL.split(text)[0].strip()
+    text = _ROMAN.sub(lambda m: m.group().upper(), text)
+    if len(text) > limit:
+        text = text[:limit].rsplit(" ", 1)[0].rstrip(",") + "…"
+    return text
 
 
 @dataclass
@@ -211,7 +233,7 @@ def expand(
             bonus[rows] = LICENSE_WEIGHT * share
             why_license[rows] = len(reasons)
             wins = f"её владельцы выигрывают {share:.0%} похожих лотов"
-            reasons.append(f"лицензия «{license_}»: {wins}")
+            reasons.append(f"лицензия «{short_license(license_)}»: {wins}")
     score += bonus
 
     score[exclude | (registry.since_day > day)] = 0
