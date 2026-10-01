@@ -16,8 +16,9 @@ from app.ml.semantic_retriever import LotEmbeddings, similar_texts
 
 OKPD2_LEVEL_WEIGHTS = {2: 0.25, 5: 0.5, 8: 1.0}  # by prefix length: class, group, kind
 FUSION_WEIGHTS = [1.0, 0.2, 1.0]  # vectors, OKPD2, customer: picked on the offline evaluation
-TOP_TEXTS = 30
+TOP_TEXTS = 100
 TOP_PER_SOURCE = 100
+CANDIDATES = 200  # pool for the ranker: the winner is in it for ~80% of lots
 SPB_LO = ("78", "47")
 RECENT_DAYS = 90
 ACTIVE_DAYS = 30
@@ -306,7 +307,7 @@ class History:
         ]
         rankings = [history.top_suppliers(s, TOP_PER_SOURCE) for s in scores]
         fused = history.reciprocal_rank_fusion(rankings, len(self.inns), FUSION_WEIGHTS)
-        candidates = history.top_suppliers(fused, TOP_PER_SOURCE)
+        candidates = history.top_suppliers(fused, CANDIDATES)
         return Retrieval(scores, rankings, fused, candidates, rows, sims)
 
     def _customer_features(self, q: Query, c: np.ndarray) -> list[np.ndarray]:
