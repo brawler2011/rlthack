@@ -374,6 +374,12 @@ class History:
         return np.column_stack(columns).astype(np.float32)
 
 
+def by_month(data: Dataset, rows: np.ndarray) -> dict[date, np.ndarray]:
+    """Lot rows grouped by the start of their month: the history cutoff for each, as in the API."""
+    months = data.lot_day[rows].astype("datetime64[D]").astype("datetime64[M]")
+    return {m.astype("datetime64[D]").item(): rows[months == m] for m in np.unique(months)}
+
+
 def query_rows(data: Dataset, start: date, end: date | None, n: int, seed: int) -> np.ndarray:
     """Up to n random lot rows published in [start, end) that have a known winner."""
     rows = np.unique(data.bid_lot[data.bid_win])

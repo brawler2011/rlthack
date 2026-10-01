@@ -1,7 +1,7 @@
-"""Script 05: Train the CatBoost ranker on lots between two dates, with history before the first.
+"""Script 05: Train the CatBoost ranker on lots between two dates.
 
-Features of the training lots come only from bids before --history-cutoff, so the model learns
-to rank suppliers for lots it has not seen, the same way it is used after training.
+Features of each training lot come only from bids before the start of its month, the way the API
+builds them, so the model learns to rank suppliers for lots it has not seen.
 """
 
 import argparse
@@ -16,16 +16,16 @@ import numpy as np  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.etl import pipeline  # noqa: E402
 from app.ml import ranker  # noqa: E402
-from app.ml.candidates import FEATURES, History, load_dataset, query_rows  # noqa: E402
+from app.ml.candidates import FEATURES, History, by_month, load_dataset, query_rows  # noqa: E402
 from app.ml.semantic_retriever import LotEmbeddings  # noqa: E402
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--history-cutoff", type=date.fromisoformat, default=date(2025, 7, 1))
+    parser.add_argument("--start", type=date.fromisoformat, default=date(2025, 7, 1))
     parser.add_argument("--until", type=date.fromisoformat, default=date(2025, 10, 1))
     parser.add_argument("--queries", type=int, default=4000)
-    parser.add_argument("--iterations", type=int, default=600)
+    parser.add_argument("--iterations", type=int, default=1500)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -35,21 +35,21 @@ def main():
     emb = LotEmbeddings.load(settings.embeddings_dir)
     with pipeline.connect() as conn, pipeline.timed("[05] Reading data"):
         data = load_dataset(conn, emb)
-    with pipeline.timed(f"[05] Building history before {args.history_cutoff}"):
-        hist = History(data, emb, args.history_cutoff)
 
-    rows = query_rows(data, args.history_cutoff, args.until, args.queries, args.seed)
+    rows = query_rows(data, args.start, args.until, args.queries, args.seed)
     features, labels, groups = [], [], []
     with pipeline.timed(f"[05] Building features for {len(rows)} lots"):
-        for group, row in enumerate(rows.tolist()):
-            q = data.query(row, emb)
-            r = hist.retrieve(q)
-            hit = np.isin(r.candidates, hist.columns(data.winners(row)))
-            if not hit.any():
-                continue  # no winner among the candidates: nothing to learn from
-            features.append(hist.features(q, r))
-            labels.append(hit.astype(float))
-            groups.append(np.full(len(hit), group))
+        for cutoff, month_rows in by_month(data, rows).items():
+            hist = History(data, emb, cutoff)
+            for row in month_rows.tolist():
+                q = data.query(row, emb)
+                r = hist.retrieve(q)
+                hit = np.isin(r.candidates, hist.columns(data.winners(row)))
+                if not hit.any():
+                    continue  # no winner among the candidates: nothing to learn from
+                features.append(hist.features(q, r))
+                labels.append(hit.astype(float))
+                groups.append(np.full(len(hit), row))
     print(f"    lots with the winner among candidates: {len(groups)} of {len(rows)}")
 
     with pipeline.timed("[05] Training CatBoostRanker"):

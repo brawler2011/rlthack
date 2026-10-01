@@ -165,6 +165,12 @@ class Engine:
             col = int(candidates[i])
             company = companies.get(inn) or {}
             facts = self._facts(stats, col, query, card, okpd2_codes, evidence, customer, inn)
+            values = dict(zip(FEATURES, features[i].tolist(), strict=True))
+            facts.repeat_win_sim = values["cust_sim_win"]
+            facts.repeat_bid_sim = values["cust_sim_bid"]
+            facts.repeat_days = values["cust_days_since_win"]
+            facts.days_since_bid = values["days_since_bid"]
+            facts.active_bids = round(float(np.expm1(values["log_active_bids"])))
             role = company.get("role") or "UNKNOWN"
             items.append(
                 SupplierRecommendation(
