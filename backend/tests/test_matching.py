@@ -35,3 +35,8 @@ def test_similar_texts():
     vectors = np.eye(3, dtype=np.float32)
     rows, sims = similar_texts(vectors, np.array([0.0, 1.0, 0.0], dtype=np.float32), 1)
     assert rows.tolist() == [1] and sims.tolist() == [1.0]
+
+
+def test_reciprocal_rank_fusion_weights():
+    fused = history.reciprocal_rank_fusion([np.array([0]), np.array([1])], 2, [0.5, 1.0])
+    assert history.top_suppliers(fused, 2).tolist() == [1, 0]

@@ -38,9 +38,14 @@ def top_suppliers(scores: np.ndarray, k: int) -> np.ndarray:
     return nonzero[np.argsort(-scores[nonzero], kind="stable")]
 
 
-def reciprocal_rank_fusion(rankings: list[np.ndarray], n_suppliers: int, k: int = 60) -> np.ndarray:
-    """Fuse ranked lists into one score: sum of 1 / (k + rank) over the lists a supplier is in."""
+def reciprocal_rank_fusion(
+    rankings: list[np.ndarray],
+    n_suppliers: int,
+    weights: list[float] | None = None,
+    k: int = 60,
+) -> np.ndarray:
+    """Fuse ranked lists into one score: weighted sum of 1 / (k + rank) over the lists."""
     fused = np.zeros(n_suppliers)
-    for ranking in rankings:
-        fused[ranking] += 1.0 / (k + np.arange(1, len(ranking) + 1))
+    for ranking, weight in zip(rankings, weights or [1.0] * len(rankings), strict=True):
+        fused[ranking] += weight / (k + np.arange(1, len(ranking) + 1))
     return fused

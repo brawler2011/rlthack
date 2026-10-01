@@ -34,8 +34,13 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cutoff", type=date.fromisoformat, default=date(2025, 10, 1))
     parser.add_argument("--queries", type=int, default=2000)
-    parser.add_argument("--top-texts", type=int, default=50, help="similar texts per query")
+    parser.add_argument("--top-texts", type=int, default=30, help="similar texts per query")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--weights",
+        default="1,0.2,1",
+        help="hybrid fusion weights for vectors, okpd2, customer",
+    )
     return parser.parse_args()
 
 
@@ -45,7 +50,10 @@ def main():
     lot_row = {lot_id: i for i, lot_id in enumerate(emb.lot_ids.tolist())}
 
     with pipeline.connect() as conn, pipeline.timed("[06] Reading history"):
-        lots = {r[0]: r[1:] for r in conn.execute("SELECT lot_id, publish_date, channel FROM lots")}
+        lots = {
+            r[0]: r[1:]
+            for r in conn.execute("SELECT lot_id, publish_date, channel, customer_inn FROM lots")
+        }
         bids = conn.execute("SELECT lot_id, supplier_inn, is_winner FROM bids").fetchall()
         lot_prefixes = defaultdict(list)
         for lot_id, prefix in conn.execute(LOT_PREFIXES):
@@ -71,6 +79,16 @@ def main():
         by_okpd2 = history.key_matrix(
             np.array(pk), np.array(ps), np.array(pw), len(prefixes), len(inns)
         )
+        customers = sorted({v[2] for v in lots.values() if v[2]})
+        customer_row = {c: i for i, c in enumerate(customers)}
+        known = [i for i, b in enumerate(train) if lots[b[0]][2]]
+        by_customer = history.key_matrix(
+            np.array([customer_row[lots[train[i][0]][2]] for i in known]),
+            lot_col[known],
+            wins[known],
+            len(customers),
+            len(inns),
+        )
 
     winners = defaultdict(set)
     for lot_id, inn, win in bids:
@@ -80,7 +98,8 @@ def main():
     query_lots = sorted(winners)
     query_lots = rng.choice(query_lots, size=min(args.queries, len(query_lots)), replace=False)
 
-    methods = ("okpd2", "vectors", "hybrid")
+    methods = ("okpd2", "vectors", "customer", "hybrid")
+    fusion_weights = [float(w) for w in args.weights.split(",")]
     hits = {m: defaultdict(lambda: np.zeros(len(KS) + 1)) for m in methods}
     counts = defaultdict(int)
     unseen = 0
@@ -106,10 +125,19 @@ def main():
                 history.score(by_text, rows, np.clip(sims, 0, None)), 100
             )
 
-            fused = history.reciprocal_rank_fusion([okpd2, vectors], len(inns))
+            customer_key = customer_row.get(lots[lot_id][2])
+            keys = np.array([] if customer_key is None else [customer_key], dtype=int)
+            customer = history.top_suppliers(
+                history.score(by_customer, keys, np.ones(len(keys))), 100
+            )
+
+            fused = history.reciprocal_rank_fusion(
+                [vectors, okpd2, customer], len(inns), fusion_weights
+            )
             ranked = {
                 "okpd2": okpd2,
                 "vectors": vectors,
+                "customer": customer,
                 "hybrid": history.top_suppliers(fused, 100),
             }
             for method, ranking in ranked.items():
