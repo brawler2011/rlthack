@@ -60,6 +60,7 @@ data/dictionaries/*.tmp
 backend/models/*.cbm
 backend/models/rubert-tiny2/
 backend/models/hf/
+catboost_info/
 .cache/
 huggingface/
 

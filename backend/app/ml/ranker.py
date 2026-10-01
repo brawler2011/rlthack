@@ -17,6 +17,7 @@ def train(features: np.ndarray, labels: np.ndarray, groups: np.ndarray, iteratio
         depth=6,
         random_seed=42,
         verbose=100,
+        allow_writing_files=False,  # no catboost_info/ logs in the working directory
     )
     model.fit(Pool(features, labels, group_id=groups, feature_names=list(FEATURES)))
     return model
