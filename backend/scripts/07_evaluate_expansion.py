@@ -59,13 +59,14 @@ def main():
 
     exclude = np.isin(registry.inns, list(known))
     row_of = {inn: i for i, inn in enumerate(registry.inns.tolist())}
-    in_registry = available = 0
+    in_registry = available = local = 0
     ranks, group_ranks, pool_sizes, licensed = [], [], [], []
     for lot, day, inns in cold:
         rows = [row_of[i] for i in inns if i in row_of]
         in_registry += bool(rows)
         rows = [r for r in rows if registry.since_day[r] <= day]
         available += bool(rows)
+        local += any(registry.local[r] for r in rows)
         lot_codes = codes.get(lot, [])
         shares = affinity.for_codes(lot_codes)
         groups = sorted(shares, key=shares.get, reverse=True)
@@ -86,6 +87,7 @@ def main():
     print(f"    winner never bid before the cutoff: {n} ({n / len(lots):.1%})")
     print(f"    winner in the SME registry: {in_registry} ({in_registry / n:.1%}),")
     print(f"      already registered on the lot date: {available} ({available / n:.1%})")
+    print(f"      of them in SPb / LO, the pool we suggest from: {local} ({local / n:.1%})")
     print(f"    median pool of new companies per lot: {int(np.median(pool_sizes))}")
 
     def recall(values, ks):

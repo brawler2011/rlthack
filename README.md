@@ -75,11 +75,11 @@ split (trained on April–June, checked on July–September) without looking at 
   it for 82% of lots instead of 74%) and the QuerySoftMax loss.
 - Any real bidder of the lot in our top 10: 80% of lots, 87% on the e-shop (only e-shop data lists
   losing bidders).
-- 5% of winners never bid before: for them the SME registry is the source. 72% of them are in it;
-  their OKVED group is among the 10 we expect for the lot in 42% of cases. Such a winner is among
-  the top 100 suggested new companies for 8.4% of these lots (top 50: 4.6%): a hard case, the
-  pool has ~350k companies. Scoring a group's share of wins per company and weighting by the
-  company profile learned on last quarter's newcomers raised it from 2.6%.
+- 4.8% of the lots are won by a company that never bid before. For them the SME registry of
+  SPb / LO is the only source, and it holds the winner of 43% of these lots. The winner's OKVED
+  group is among the 10 we expect for the lot in 42% of cases, and the winner is among the top
+  100 suggested new companies for 1.4% of these lots (top 50: 0.8%): the pool has ~350k
+  companies and the registry has almost nothing that tells a future winner apart.
 - Roles (manufacturer / distributor / supplier) from the registry OKVED: 60% of the suppliers in the
   data; the rest are large companies outside the SME registry.
 
