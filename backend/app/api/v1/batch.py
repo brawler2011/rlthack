@@ -9,7 +9,7 @@ from app.services.batch_service import batch_service
 router = APIRouter(prefix="/batch", tags=["Batch"])
 
 
-@router.post("/simulate", response_model=BatchResponse)
+@router.post("/simulate", response_model=BatchResponse, operation_id="simulate_batch")
 def simulate_batch_recommendations(
     day: date | None = Query(default=None, description="Notices of this day; default: the last"),
     max_lots: int = Query(default=10, ge=1, le=50),

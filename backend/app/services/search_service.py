@@ -29,7 +29,13 @@ class SearchService:
             query = engine.data.query(engine.lot_row(request.lot_id), engine.emb)
         else:
             lot = request.lot
-            card = LotCard(**lot.model_dump())
+            card = LotCard(
+                **lot.model_dump(),
+                lot_id=None,
+                publish_date=None,
+                procedure_name=None,
+                actual_winners=[],
+            )
             query = engine.new_lot_query(lot)
         return engine.search(
             conn, card, query, card.okpd2_codes, request.filters, request.limit, request.new_limit

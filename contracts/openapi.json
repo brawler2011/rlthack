@@ -1,0 +1,1539 @@
+{
+  "components": {
+    "schemas": {
+      "BatchLotResult": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_winners": {
+            "description": "Who really won (demo)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Actual Winners",
+            "type": "array"
+          },
+          "invitations": {
+            "items": {
+              "$ref": "#/components/schemas/Invitation"
+            },
+            "title": "Invitations",
+            "type": "array"
+          },
+          "lot": {
+            "$ref": "#/components/schemas/LotListItem"
+          },
+          "winner_invited": {
+            "description": "The real winner is among the invitations (demo)",
+            "title": "Winner Invited",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "lot",
+          "invitations",
+          "actual_winners",
+          "winner_invited"
+        ],
+        "title": "BatchLotResult",
+        "type": "object"
+      },
+      "BatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "description": "Publication date of the processed notices",
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/BatchLotResult"
+            },
+            "title": "Lots",
+            "type": "array"
+          },
+          "timing_ms": {
+            "title": "Timing Ms",
+            "type": "number"
+          },
+          "total_invitations": {
+            "title": "Total Invitations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "lots",
+          "total_invitations",
+          "timing_ms"
+        ],
+        "title": "BatchResponse",
+        "type": "object"
+      },
+      "EvidenceLot": {
+        "additionalProperties": false,
+        "description": "A past lot similar to the query that the supplier bid on.",
+        "properties": {
+          "lot_id": {
+            "title": "Lot Id",
+            "type": "integer"
+          },
+          "publish_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Date"
+          },
+          "start_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Price"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "won": {
+            "title": "Won",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "lot_id",
+          "publish_date",
+          "subject",
+          "start_price",
+          "won"
+        ],
+        "title": "EvidenceLot",
+        "type": "object"
+      },
+      "Explanation": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceLot"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/XaiFactor"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
+          "level": {
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "level",
+          "factors",
+          "evidence"
+        ],
+        "title": "Explanation",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "service": {
+            "const": "rlthack-recsys-backend",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "engine"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "Invitation": {
+        "additionalProperties": false,
+        "description": "A supplier the robot would invite to the lot's procurement.",
+        "properties": {
+          "inn": {
+            "title": "Inn",
+            "type": "string"
+          },
+          "is_new": {
+            "description": "From the SME registry, never bid before",
+            "title": "Is New",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "role_display": {
+            "title": "Role Display",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "inn",
+          "name",
+          "role_display",
+          "score",
+          "reason",
+          "is_new"
+        ],
+        "title": "Invitation",
+        "type": "object"
+      },
+      "LotCard": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_winners": {
+            "description": "INNs of the real winners, for lots from the data (demo)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Actual Winners",
+            "type": "array"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "customer_inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Inn"
+          },
+          "is_smp": {
+            "title": "Is Smp",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "lot_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None for a new lot",
+            "title": "Lot Id"
+          },
+          "okpd2_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Okpd2 Codes",
+            "type": "array"
+          },
+          "procedure_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure Name"
+          },
+          "publish_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Date"
+          },
+          "start_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Price"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lot_id",
+          "publish_date",
+          "subject",
+          "procedure_name",
+          "start_price",
+          "okpd2_codes",
+          "items",
+          "customer_inn",
+          "channel",
+          "is_smp",
+          "actual_winners"
+        ],
+        "title": "LotCard",
+        "type": "object"
+      },
+      "LotListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "customer_inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Inn"
+          },
+          "lot_id": {
+            "title": "Lot Id",
+            "type": "integer"
+          },
+          "publish_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Date"
+          },
+          "start_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Price"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "lot_id",
+          "publish_date",
+          "subject",
+          "start_price",
+          "channel",
+          "customer_inn"
+        ],
+        "title": "LotListItem",
+        "type": "object"
+      },
+      "NewLot": {
+        "additionalProperties": false,
+        "description": "A procurement that is not in the data yet, typed in by the user.",
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "«АИС ГЗ» or «ЭМ» (e-shop)",
+            "title": "Channel"
+          },
+          "customer_inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Inn"
+          },
+          "is_smp": {
+            "description": "Only for SMEs",
+            "title": "Is Smp",
+            "type": "boolean"
+          },
+          "items": {
+            "description": "Item (TRU) names",
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "okpd2_codes": {
+            "examples": [
+              [
+                "20.59.12.120"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Okpd2 Codes",
+            "type": "array"
+          },
+          "start_price": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Initial max price, RUB",
+            "title": "Start Price"
+          },
+          "subject": {
+            "examples": [
+              "Поставка картриджей для принтеров HP"
+            ],
+            "minLength": 3,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "items",
+          "okpd2_codes",
+          "start_price",
+          "customer_inn",
+          "channel",
+          "is_smp"
+        ],
+        "title": "NewLot",
+        "type": "object"
+      },
+      "NewSupplier": {
+        "additionalProperties": false,
+        "description": "A company from the SME registry with no bids in the data.",
+        "properties": {
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "inn": {
+            "title": "Inn",
+            "type": "string"
+          },
+          "msp_category": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 micro, 2 small, 3 medium",
+            "title": "Msp Category"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "okved_main": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Okved Main"
+          },
+          "okved_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Okved Name"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "region_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Code"
+          },
+          "role": {
+            "enum": [
+              "MANUFACTURER",
+              "DISTRIBUTOR",
+              "SUPPLIER",
+              "UNKNOWN"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "role_display": {
+            "title": "Role Display",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "inn",
+          "name",
+          "role",
+          "role_display",
+          "okved_main",
+          "okved_name",
+          "region_code",
+          "msp_category",
+          "headcount",
+          "reason",
+          "score"
+        ],
+        "title": "NewSupplier",
+        "type": "object"
+      },
+      "OkpdExperience": {
+        "additionalProperties": false,
+        "properties": {
+          "n_bids": {
+            "title": "N Bids",
+            "type": "integer"
+          },
+          "n_wins": {
+            "title": "N Wins",
+            "type": "integer"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prefix",
+          "n_bids",
+          "n_wins"
+        ],
+        "title": "OkpdExperience",
+        "type": "object"
+      },
+      "SearchFilters": {
+        "additionalProperties": false,
+        "properties": {
+          "min_win_rate": {
+            "description": "Zero disables the win-rate filter",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Win Rate",
+            "type": "number"
+          },
+          "only_smp": {
+            "title": "Only Smp",
+            "type": "boolean"
+          },
+          "only_spb_lo": {
+            "title": "Only Spb Lo",
+            "type": "boolean"
+          },
+          "roles": {
+            "description": "Empty list matches all roles",
+            "items": {
+              "enum": [
+                "MANUFACTURER",
+                "DISTRIBUTOR",
+                "SUPPLIER",
+                "UNKNOWN"
+              ],
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "only_spb_lo",
+          "only_smp",
+          "min_win_rate"
+        ],
+        "title": "SearchFilters",
+        "type": "object"
+      },
+      "SearchRequest": {
+        "additionalProperties": false,
+        "description": "Either an existing lot (lot_id) or a new one (lot).",
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "limit": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "lot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewLot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lot_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Id"
+          },
+          "new_limit": {
+            "description": "New suppliers to suggest",
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "New Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lot_id",
+          "lot",
+          "filters",
+          "limit",
+          "new_limit"
+        ],
+        "title": "SearchRequest",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SupplierRecommendation"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "lot": {
+            "$ref": "#/components/schemas/LotCard"
+          },
+          "new_suppliers": {
+            "items": {
+              "$ref": "#/components/schemas/NewSupplier"
+            },
+            "title": "New Suppliers",
+            "type": "array"
+          },
+          "timing_ms": {
+            "title": "Timing Ms",
+            "type": "number"
+          },
+          "total_candidates": {
+            "title": "Total Candidates",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lot",
+          "items",
+          "new_suppliers",
+          "total_candidates",
+          "timing_ms"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "SupplierCard": {
+        "additionalProperties": false,
+        "description": "Everything known about a company: history from the data plus the SME registry.",
+        "properties": {
+          "avg_won_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Won Price"
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "inn": {
+            "title": "Inn",
+            "type": "string"
+          },
+          "is_spb_lo": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Spb Lo"
+          },
+          "msp_category": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Msp Category"
+          },
+          "msp_since": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Msp Since"
+          },
+          "n_bids": {
+            "title": "N Bids",
+            "type": "integer"
+          },
+          "n_customers": {
+            "title": "N Customers",
+            "type": "integer"
+          },
+          "n_wins": {
+            "title": "N Wins",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "okved_extra": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Okved Extra",
+            "type": "array"
+          },
+          "okved_main": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Okved Main"
+          },
+          "okved_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Okved Name"
+          },
+          "recent_lots": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceLot"
+            },
+            "title": "Recent Lots",
+            "type": "array"
+          },
+          "region_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Code"
+          },
+          "role": {
+            "enum": [
+              "MANUFACTURER",
+              "DISTRIBUTOR",
+              "SUPPLIER",
+              "UNKNOWN"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "role_display": {
+            "title": "Role Display",
+            "type": "string"
+          },
+          "role_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Reason"
+          },
+          "top_okpd2": {
+            "items": {
+              "$ref": "#/components/schemas/OkpdExperience"
+            },
+            "title": "Top Okpd2",
+            "type": "array"
+          },
+          "win_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Win Rate"
+          }
+        },
+        "required": [
+          "inn",
+          "name",
+          "role",
+          "role_display",
+          "role_reason",
+          "okved_main",
+          "okved_name",
+          "okved_extra",
+          "region_code",
+          "is_spb_lo",
+          "msp_category",
+          "headcount",
+          "msp_since",
+          "n_bids",
+          "n_wins",
+          "win_rate",
+          "avg_won_price",
+          "n_customers",
+          "top_okpd2",
+          "recent_lots"
+        ],
+        "title": "SupplierCard",
+        "type": "object"
+      },
+      "SupplierRecommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "avg_won_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Won Price"
+          },
+          "explanation": {
+            "$ref": "#/components/schemas/Explanation"
+          },
+          "inn": {
+            "title": "Inn",
+            "type": "string"
+          },
+          "is_actual_winner": {
+            "description": "Won this lot in reality (demo)",
+            "title": "Is Actual Winner",
+            "type": "boolean"
+          },
+          "is_smp": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In the FNS SME registry",
+            "title": "Is Smp"
+          },
+          "is_spb_lo": {
+            "title": "Is Spb Lo",
+            "type": "boolean"
+          },
+          "n_bids": {
+            "title": "N Bids",
+            "type": "integer"
+          },
+          "n_wins": {
+            "title": "N Wins",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "region_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Code"
+          },
+          "role": {
+            "enum": [
+              "MANUFACTURER",
+              "DISTRIBUTOR",
+              "SUPPLIER",
+              "UNKNOWN"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "role_display": {
+            "title": "Role Display",
+            "type": "string"
+          },
+          "role_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Reason"
+          },
+          "score": {
+            "description": "Relevance in [0, 1] within this result",
+            "title": "Score",
+            "type": "number"
+          },
+          "win_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Over contested lots; None if none",
+            "title": "Win Rate"
+          }
+        },
+        "required": [
+          "rank",
+          "inn",
+          "name",
+          "role",
+          "role_display",
+          "role_reason",
+          "score",
+          "win_rate",
+          "n_bids",
+          "n_wins",
+          "avg_won_price",
+          "region_code",
+          "is_spb_lo",
+          "is_smp",
+          "is_actual_winner",
+          "explanation"
+        ],
+        "title": "SupplierRecommendation",
+        "type": "object"
+      },
+      "ValidationErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ValidationErrorResponse",
+        "type": "object"
+      },
+      "ValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationIssue",
+        "type": "object"
+      },
+      "XaiFactor": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "description": "Contribution to the rank score (SHAP); > 0 pushes up",
+            "title": "Impact",
+            "type": "number"
+          },
+          "name": {
+            "description": "Feature key, e.g. customer_score",
+            "title": "Name",
+            "type": "string"
+          },
+          "text": {
+            "description": "Human-readable reason with the actual value",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "impact",
+          "text"
+        ],
+        "title": "XaiFactor",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Recommendation service and Explainable AI (XAI) API for counterparty matching",
+    "title": "Roseltorg • Intelligent Counterparty Selection Service AIS GZ",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/batch/simulate": {
+      "post": {
+        "description": "The background robot for one day: newly published notices, suppliers to invite for each\n(known ones with the reason, plus new companies from the SME registry).",
+        "operationId": "simulate_batch",
+        "parameters": [
+          {
+            "description": "Notices of this day; default: the last",
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Notices of this day; default: the last",
+              "title": "Day"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_lots",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Max Lots",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Known suppliers to invite",
+            "in": "query",
+            "name": "per_lot",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "description": "Known suppliers to invite",
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Per Lot",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "New registry companies",
+            "in": "query",
+            "name": "new_per_lot",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "description": "New registry companies",
+              "maximum": 10,
+              "minimum": 0,
+              "title": "New Per Lot",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate Batch Recommendations",
+        "tags": [
+          "Batch"
+        ]
+      }
+    },
+    "/api/v1/enrichment/{inn}": {
+      "get": {
+        "description": "Company card: bidding history from the data plus OKVED, role and size from the SME\nregistry. Works for new companies that never bid too.",
+        "operationId": "get_enrichment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inn",
+            "required": true,
+            "schema": {
+              "title": "Inn",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Enrichment",
+        "tags": [
+          "Enrichment"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "The API is up; engine: idle / loading / ready / failed (search needs ready).",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health Check",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/lots/search": {
+      "get": {
+        "description": "Find lots by subject text, lot id or registry number; newest first.",
+        "operationId": "search_lots",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LotListItem"
+                  },
+                  "title": "Response Search Lots",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Lots",
+        "tags": [
+          "Lots"
+        ]
+      }
+    },
+    "/api/v1/lots/{lot_id}": {
+      "get": {
+        "description": "A lot with its items, OKPD2 codes and the real winners.",
+        "operationId": "get_lot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lot_id",
+            "required": true,
+            "schema": {
+              "title": "Lot Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Lot",
+        "tags": [
+          "Lots"
+        ]
+      }
+    },
+    "/api/v1/suppliers/search": {
+      "post": {
+        "description": "Rank suppliers for a lot from the data (lot_id) or a new one (lot), with explanations,\nplus new companies from the SME registry that fit the lot.",
+        "operationId": "search_suppliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Suppliers",
+        "tags": [
+          "Suppliers"
+        ]
+      }
+    }
+  }
+}

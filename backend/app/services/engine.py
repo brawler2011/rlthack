@@ -213,7 +213,7 @@ class Engine:
             return False
         if filters.only_smp and company is None:
             return False
-        if filters.min_win_rate is not None:
+        if filters.min_win_rate > 0:
             bids = stats["contested_bids"][col]
             if not bids or stats["contested_wins"][col] / bids < filters.min_win_rate:
                 return False

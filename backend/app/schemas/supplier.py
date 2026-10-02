@@ -1,8 +1,9 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
+from app.schemas.base import ContractModel
 from app.schemas.lot import LotCard, NewLot
 from app.schemas.xai import EvidenceLot, Explanation
 
@@ -15,21 +16,21 @@ ROLE_DISPLAY = {
 }
 
 
-class SearchFilters(BaseModel):
-    roles: list[RoleType] | None = None
-    only_spb_lo: bool = False
-    only_smp: bool = False
-    min_win_rate: float | None = Field(default=None, ge=0, le=1)
+class SearchFilters(ContractModel):
+    roles: list[RoleType] = Field(description="Empty list matches all roles")
+    only_spb_lo: bool
+    only_smp: bool
+    min_win_rate: float = Field(ge=0, le=1, description="Zero disables the win-rate filter")
 
 
-class SearchRequest(BaseModel):
+class SearchRequest(ContractModel):
     """Either an existing lot (lot_id) or a new one (lot)."""
 
-    lot_id: int | None = None
-    lot: NewLot | None = None
-    filters: SearchFilters = SearchFilters()
-    limit: int = Field(default=20, ge=1, le=100)
-    new_limit: int = Field(default=10, ge=0, le=50, description="New suppliers to suggest")
+    lot_id: int | None = Field(gt=0)
+    lot: NewLot | None
+    filters: SearchFilters
+    limit: int = Field(ge=1, le=100)
+    new_limit: int = Field(ge=0, le=50, description="New suppliers to suggest")
 
     @model_validator(mode="after")
     def one_lot(self):
@@ -38,42 +39,42 @@ class SearchRequest(BaseModel):
         return self
 
 
-class SupplierRecommendation(BaseModel):
+class SupplierRecommendation(ContractModel):
     rank: int
     inn: str
-    name: str | None = None
+    name: str | None
     role: RoleType
     role_display: str
-    role_reason: str | None = None
+    role_reason: str | None
     score: float = Field(description="Relevance in [0, 1] within this result")
-    win_rate: float | None = Field(default=None, description="Over contested lots; None if none")
+    win_rate: float | None = Field(description="Over contested lots; None if none")
     n_bids: int
     n_wins: int
-    avg_won_price: float | None = None
-    region_code: str | None = None
+    avg_won_price: float | None
+    region_code: str | None
     is_spb_lo: bool
-    is_smp: bool | None = Field(default=None, description="In the FNS SME registry")
-    is_actual_winner: bool = Field(default=False, description="Won this lot in reality (demo)")
+    is_smp: bool | None = Field(description="In the FNS SME registry")
+    is_actual_winner: bool = Field(description="Won this lot in reality (demo)")
     explanation: Explanation
 
 
-class NewSupplier(BaseModel):
+class NewSupplier(ContractModel):
     """A company from the SME registry with no bids in the data."""
 
     inn: str
-    name: str | None = None
+    name: str | None
     role: RoleType
     role_display: str
-    okved_main: str | None = None
-    okved_name: str | None = None
-    region_code: str | None = None
-    msp_category: int | None = Field(default=None, description="1 micro, 2 small, 3 medium")
-    headcount: int | None = None
+    okved_main: str | None
+    okved_name: str | None
+    region_code: str | None
+    msp_category: int | None = Field(description="1 micro, 2 small, 3 medium")
+    headcount: int | None
     reason: str
     score: float
 
 
-class SearchResponse(BaseModel):
+class SearchResponse(ContractModel):
     lot: LotCard
     items: list[SupplierRecommendation]
     new_suppliers: list[NewSupplier]
@@ -81,32 +82,32 @@ class SearchResponse(BaseModel):
     timing_ms: float
 
 
-class OkpdExperience(BaseModel):
+class OkpdExperience(ContractModel):
     prefix: str
     n_bids: int
     n_wins: int
 
 
-class SupplierCard(BaseModel):
+class SupplierCard(ContractModel):
     """Everything known about a company: history from the data plus the SME registry."""
 
     inn: str
-    name: str | None = None
+    name: str | None
     role: RoleType
     role_display: str
-    role_reason: str | None = None
-    okved_main: str | None = None
-    okved_name: str | None = None
-    okved_extra: list[str] = []
-    region_code: str | None = None
-    is_spb_lo: bool | None = None
-    msp_category: int | None = None
-    headcount: int | None = None
-    msp_since: date | None = None
-    n_bids: int = 0
-    n_wins: int = 0
-    win_rate: float | None = None
-    avg_won_price: float | None = None
-    n_customers: int = 0
-    top_okpd2: list[OkpdExperience] = []
-    recent_lots: list[EvidenceLot] = []
+    role_reason: str | None
+    okved_main: str | None
+    okved_name: str | None
+    okved_extra: list[str]
+    region_code: str | None
+    is_spb_lo: bool | None
+    msp_category: int | None
+    headcount: int | None
+    msp_since: date | None
+    n_bids: int
+    n_wins: int
+    win_rate: float | None
+    avg_won_price: float | None
+    n_customers: int
+    top_okpd2: list[OkpdExperience]
+    recent_lots: list[EvidenceLot]

@@ -30,7 +30,11 @@ class BatchService:
         results = []
         for lot in lots:
             request = SearchRequest(
-                lot_id=lot.lot_id, filters=SearchFilters(), limit=per_lot, new_limit=new_per_lot
+                lot_id=lot.lot_id,
+                lot=None,
+                filters=SearchFilters(roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0),
+                limit=per_lot,
+                new_limit=new_per_lot,
             )
             found = search_service.search(conn, request)
             invitations = [

@@ -88,3 +88,25 @@ split (trained on April–June, checked on July–September) without looking at 
 * Linters (Ruff + ESLint): `task lint`; formatting: `task format`, `task format:check`
 * Tests: `task test` (database tests need `TEST_DATABASE_URL`, see `backend/README.md`)
 * All commands: `task --list`
+
+## API contracts
+
+FastAPI models and routes are the source of truth. After changing a contract, run
+`task gen` and commit both `contracts/openapi.json` and
+`frontend/src/contracts/schema.ts`. Generation uses `openapi-typescript`; frontend
+requests use `openapi-fetch`, matching the setup in `/Projects/pomnibot`.
+Install backend and frontend dependencies with `task setup` first. Generation
+does not start the server, connect to PostgreSQL, or load ML models.
+
+Every JSON model field is required, including nullable fields. Unknown values
+are explicit `null`; missing keys and undeclared fields are rejected. Search
+requests always include filters: `filters.roles: []` matches all roles,
+`filters.min_win_rate: 0` disables that filter, and flags and `limit` are explicit.
+Query parameters retain their documented defaults. Requests from older clients
+that omit required JSON keys must be updated together with the backend.
+
+API types in the frontend are aliases of generated schemas; do not edit generated
+files or duplicate their interfaces. Use `LotInput` for new procurement parameters
+and `LotItem` for historical lot summaries. Existing notices are searched by `lot_id`. `task contracts:check` regenerates
+into a temporary directory and fails on stale artifacts without changing them.
+CI and `task check` run this check; `task test` also runs frontend transport tests.

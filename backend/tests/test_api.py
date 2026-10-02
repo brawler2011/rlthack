@@ -28,7 +28,16 @@ def test_health_reports_the_engine():
 
 
 def test_search_waits_for_the_engine(no_db):
-    response = client.post("/api/v1/suppliers/search", json={"lot_id": 1})
+    response = client.post(
+        "/api/v1/suppliers/search",
+        json={
+            "lot_id": 1,
+            "lot": None,
+            "filters": {"roles": [], "only_spb_lo": False, "only_smp": False, "min_win_rate": 0},
+            "limit": 20,
+            "new_limit": 10,
+        },
+    )
     assert response.status_code == 503
 
 
