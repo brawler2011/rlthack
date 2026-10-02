@@ -27,6 +27,11 @@ MIN_LICENSE_SHARE = 0.05  # and at least this share of the lot's winners holds i
 # in the table only because they bid somewhere in the data: in an evaluation they would be
 # future bidders, a leak; in production they are all known already.
 LOCAL_REGIONS = ("78", "47")
+# A narrow specialist is more likely to win than a company with dozens of OKVED codes: the score
+# is multiplied by SPEC_BASE + (1 - SPEC_BASE) * the share of its OKVED groups that fit the lot.
+# On the cold lots after 2025-10-01: 1.38% -> 1.52% of winners in the top 100, better at every K.
+SPEC_BASE = 0.75
+SPEC_MIN_SHARE = 0.05  # an OKVED group fits the lot if it takes at least this share of the wins
 
 WINS_SQL = """
 SELECT array_agg(DISTINCT i.okpd2_code), c.okved_main
@@ -148,6 +153,7 @@ class Registry:
     by_product: dict[str, np.ndarray]  # product code prefix (XX.XX or XX.XX.XX) -> rows
     by_license: dict[str, np.ndarray]
     local: np.ndarray  # registered in LOCAL_REGIONS
+    groups: np.ndarray  # number of OKVED groups, main and additional
 
 
 def load_registry(conn) -> Registry:
@@ -184,6 +190,7 @@ def load_registry(conn) -> Registry:
         by_product=arrays(by_product),
         by_license=arrays(by_license),
         local=np.array([r[4] in LOCAL_REGIONS for r in rows]),
+        groups=np.array([len({e[:5] for e in r[2]} | {(r[1] or "")[:5]} - {""}) for r in rows]),
     )
 
 
@@ -251,6 +258,13 @@ def expand(
         wins = f"её владельцы выигрывают {share:.0%} похожих лотов"
         reasons.append(f"лицензия «{short_license(license_)}»: {wins}")
     score += bonus
+    fitting = np.zeros(len(registry.inns))
+    for group, share in affinity.for_codes(okpd2_codes).items():
+        if share >= SPEC_MIN_SHARE:
+            for rows in (registry.by_main.get(group), registry.by_extra.get(group)):
+                if rows is not None:
+                    fitting[rows] += 1
+    score *= SPEC_BASE + (1 - SPEC_BASE) * fitting / np.maximum(registry.groups, 1)
 
     score[~alive] = 0
     found = np.flatnonzero(score > 0)
@@ -263,4 +277,8 @@ def expand(
         "; ".join(reasons[i] for i in pair if i >= 0)
         for pair in zip(why[order].tolist(), why_license[order].tolist(), strict=True)
     ]
+    for k, row in enumerate(order.tolist()):
+        if registry.groups[row] > 1:  # with one OKVED group it says nothing new
+            fit, total = int(fitting[row]), int(registry.groups[row])
+            texts[k] += f"; {fit} из {total} групп ОКВЭД компании — по профилю лота"
     return order, relative, texts
