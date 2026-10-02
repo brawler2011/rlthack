@@ -3,11 +3,11 @@
 OKPD2 codes of goods rarely share digits with the OKVED of those who supply them (medicines are
 won by wholesalers with OKVED 46.46), so the fit is learned from history: for each OKPD2 group,
 the share of wins taken by companies of each main OKVED group. A registry company scores its
-group's share per company still in the pool (a big group's share is spread over more companies),
-half of it for an additional OKVED, plus a bonus when it declares making a product with the
-lot's code. Licenses narrow a group for regulated goods: the share of wins taken by holders of
-a license (pharmacy, medical, waste) is learned the same way and adds to the holders' score.
-Size, region and age only break ties.
+group's share per company still in the pool if the group meets the profile threshold (a big
+group's share is spread over more companies), half of it for an additional OKVED, plus a bonus
+when it declares making a product with the lot's code. Licenses narrow a group for regulated
+goods: the share of wins taken by holders of a license (pharmacy, medical, waste) is learned
+the same way and adds to the holders' score. Size, region and age only break ties.
 """
 
 import re
@@ -213,6 +213,7 @@ def expand(
     """
     alive = registry.local & ~exclude & (registry.since_day <= day)
     score = np.zeros(len(registry.inns))
+    fitting = np.zeros(len(registry.inns))
     reasons: list[str] = []  # texts; why[row] points into it, built only for the shown companies
     why = np.full(len(registry.inns), -1)
 
@@ -227,12 +228,17 @@ def expand(
         return share / max(int(alive[rows].sum()), 1)
 
     for group, share in affinity.for_codes(okpd2_codes).items():
+        # Eligibility and specialization must use the same definition of a fitting group.
+        if share < SPEC_MIN_SHARE:
+            continue
         wins = f"такие компании выигрывают {share:.0%} похожих лотов"
         if (rows := registry.by_main.get(group)) is not None:
             offer(rows, per_company(share, rows), f"основной ОКВЭД {group}: {wins}")
+            fitting[rows] += 1
         if (rows := registry.by_extra.get(group)) is not None:
             value = per_company(EXTRA_OKVED_WEIGHT * share, rows)
             offer(rows, value, f"дополнительный ОКВЭД {group}: {wins}")
+            fitting[rows] += 1
     # One bonus per company; the reason names the most specific matching code.
     declared = np.zeros(len(registry.inns), dtype=bool)
     codes = {c[:8] for c in okpd2_codes} | {c[:5] for c in okpd2_codes}
@@ -258,12 +264,6 @@ def expand(
         wins = f"её владельцы выигрывают {share:.0%} похожих лотов"
         reasons.append(f"лицензия «{short_license(license_)}»: {wins}")
     score += bonus
-    fitting = np.zeros(len(registry.inns))
-    for group, share in affinity.for_codes(okpd2_codes).items():
-        if share >= SPEC_MIN_SHARE:
-            for rows in (registry.by_main.get(group), registry.by_extra.get(group)):
-                if rows is not None:
-                    fitting[rows] += 1
     score *= SPEC_BASE + (1 - SPEC_BASE) * fitting / np.maximum(registry.groups, 1)
 
     score[~alive] = 0
@@ -278,7 +278,10 @@ def expand(
         for pair in zip(why[order].tolist(), why_license[order].tolist(), strict=True)
     ]
     for k, row in enumerate(order.tolist()):
-        if registry.groups[row] > 1:  # with one OKVED group it says nothing new
-            fit, total = int(fitting[row]), int(registry.groups[row])
+        fit, total = int(fitting[row]), int(registry.groups[row])
+        if not fit:
+            # Product and license evidence can justify a recommendation without OKVED fit.
+            texts[k] += "; соответствие ОКВЭД профилю лота не подтверждено"
+        elif total > 1:  # with one matching OKVED group it says nothing new
             texts[k] += f"; {fit} из {total} групп ОКВЭД компании — по профилю лота"
     return order, relative, texts
