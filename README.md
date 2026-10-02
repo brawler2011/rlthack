@@ -76,9 +76,10 @@ split (trained on April–June, checked on July–September) without looking at 
 - Any real bidder of the lot in our top 10: 80% of lots, 87% on the e-shop (only e-shop data lists
   losing bidders).
 - 5% of winners never bid before: for them the SME registry is the source. 72% of them are in it;
-  their OKVED group is among the 10 we expect for the lot in 42% of cases. With licenses from
-  the registry, such a winner is among the top 100 suggested new companies for 1.6% of these lots
-  (1.0% without): a hard case, the pool has ~350k companies.
+  their OKVED group is among the 10 we expect for the lot in 42% of cases. Such a winner is among
+  the top 100 suggested new companies for 8.4% of these lots (top 50: 4.6%): a hard case, the
+  pool has ~350k companies. Scoring a group's share of wins per company and weighting by the
+  company profile learned on last quarter's newcomers raised it from 2.6%.
 - Roles (manufacturer / distributor / supplier) from the registry OKVED: 60% of the suppliers in the
   data; the rest are large companies outside the SME registry.
 
