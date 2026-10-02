@@ -11,7 +11,6 @@ export default function NewCompanies({
   return (
     <section className="new-companies" aria-label="Новые компании из реестра МСП">
       <h3>Новые компании из реестра МСП</h3>
-      <p>Ещё не участвовали в закупках из нашей базы. Подобраны по профилю деятельности.</p>
       {suppliers.length === 0 ? (
         <p>Подходящие новые компании не найдены.</p>
       ) : (

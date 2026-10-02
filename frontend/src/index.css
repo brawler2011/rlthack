@@ -771,6 +771,12 @@ textarea::placeholder {
   flex-shrink: 0;
   cursor: pointer;
 }
+.filter-help {
+  margin: 6px 0 0 24px;
+  color: #657084;
+  font-size: 11px;
+  line-height: 1.7;
+}
 .filters-section {
   margin-top: 24px;
   border-top: 1px solid var(--line);
@@ -1408,6 +1414,33 @@ textarea::placeholder {
   width: 4px;
   height: 4px;
 }
+.reliability-warnings {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+  padding: 10px 12px;
+  border: 1px solid #ecd4ad;
+  border-radius: 7px;
+  background: #fff9ef;
+  color: #805414;
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: left;
+}
+.reliability-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.reliability-warning > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.reliability-warning > span {
+  min-width: 0;
+}
 .supplier-score {
   display: flex;
   flex-direction: column;
@@ -1915,6 +1948,11 @@ textarea::placeholder {
   text-align: right;
   color: #647896;
   overflow-wrap: anywhere;
+}
+.trust-details > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
 }
 .enrichment-list .registry-confirmed {
   display: flex;

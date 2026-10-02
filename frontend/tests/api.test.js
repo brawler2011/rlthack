@@ -52,7 +52,13 @@ const lot = {
 const body = {
   lot_id: null,
   lot,
-  filters: { roles: [], only_spb_lo: false, only_smp: false, min_win_rate: 0 },
+  filters: {
+    roles: [],
+    only_spb_lo: false,
+    only_smp: false,
+    min_win_rate: 0,
+    only_reliable: false,
+  },
   limit: 20,
   new_limit: 10,
 };
@@ -66,6 +72,22 @@ test("search sends all required keys, including nulls and disabled filters", asy
   expect(request.method).toBe("POST");
   expect(request.headers.get("Content-Type")).toBe("application/json");
   expect(await request.json()).toEqual(body);
+});
+
+test("search sends the enabled reliability filter and preserves recommendation warnings", async () => {
+  const result = {
+    lot,
+    items: [{ inn: "7802587594", warnings: ["Налоговая задолженность 100 000 ₽"] }],
+    new_suppliers: [],
+    total_candidates: 1,
+    timing_ms: 0,
+  };
+  fetchSpy.mockResolvedValue(Response.json(result));
+  expect(
+    await searchSuppliers({ ...body, filters: { ...body.filters, only_reliable: true } })
+  ).toEqual(result);
+  const sent = await fetchSpy.mock.calls[0][0].json();
+  expect(sent.filters.only_reliable).toBe(true);
 });
 
 test("historical lot searches by ID without sending response-only fields", async () => {
@@ -151,10 +173,29 @@ test("enrichment uses the typed path and preserves explicit nulls", async () => 
     n_customers: 0,
     top_okpd2: [],
     recent_lots: [],
+    trust: null,
   };
   fetchSpy.mockResolvedValue(Response.json(result));
   expect(await getSupplierEnrichment(result.inn)).toEqual(result);
   expect(new URL(fetchSpy.mock.calls[0][0].url).pathname).toBe("/api/v1/enrichment/7802587594");
+});
+
+test("enrichment preserves FNS data, zero values and warnings", async () => {
+  const result = {
+    inn: "7802587594",
+    trust: {
+      status: "ACTIVE",
+      registered: "2020-01-15",
+      revenue: 1000000,
+      expenses: null,
+      taxes_paid: 0,
+      tax_debt: 100000,
+      headcount: 0,
+      warnings: ["Налоговая задолженность 100 000 ₽"],
+    },
+  };
+  fetchSpy.mockResolvedValue(Response.json(result));
+  expect(await getSupplierEnrichment(result.inn)).toEqual(result);
 });
 
 test("validation errors retain the Russian message", async () => {

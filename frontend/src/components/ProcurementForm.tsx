@@ -159,6 +159,7 @@ export default function ProcurementForm({
     filters.roles.length +
     Number(filters.onlySpb) +
     Number(filters.onlySmp) +
+    Number(filters.onlyReliable) +
     Number(filters.minWinRate > 0);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -385,6 +386,24 @@ export default function ProcurementForm({
                   />
                   <span>Только субъекты МСП</span>
                 </label>
+                <div className="reliability-filter">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={filters.onlyReliable}
+                      aria-describedby="reliability-filter-help"
+                      onChange={(event) =>
+                        onFiltersChange({ ...filters, onlyReliable: event.target.checked })
+                      }
+                    />
+                    <span>Только надёжные компании</span>
+                  </label>
+                  <p id="reliability-filter-help" className="filter-help">
+                    Исключает компании с признаками прекращения деятельности, существенной налоговой
+                    задолженностью или выручкой ниже НМЦК. Компании без данных ФНС остаются в
+                    подборе.
+                  </p>
+                </div>
                 <div className="range-field">
                   <label className="field-label" htmlFor="win-rate">
                     Доля побед в закупках <span>от {filters.minWinRate}%</span>

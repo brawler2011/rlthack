@@ -17,6 +17,7 @@ import type {
   SelectedSupplier,
 } from "../types";
 import NewCompanies from "./NewCompanies";
+import ReliabilityWarnings from "./ReliabilityWarnings";
 import type { Filters } from "../utils/filters";
 
 export type SearchState =
@@ -120,6 +121,7 @@ export function SupplierRow({
             {summary}
           </p>
         )}
+        <ReliabilityWarnings warnings={supplier.warnings} />
       </div>
       <div className="supplier-score">
         <strong>{number(supplier.score, 3)}</strong>
@@ -220,6 +222,7 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
             {(state.filters.roles.length > 0 ||
               state.filters.onlySpb ||
               state.filters.onlySmp ||
+              state.filters.onlyReliable ||
               state.filters.minWinRate > 0) && (
               <div className="applied-filters">
                 {state.filters.roles.map((role) => (
@@ -227,6 +230,7 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
                 ))}
                 {state.filters.onlySpb && <span>СПб и Ленобласть</span>}
                 {state.filters.onlySmp && <span>МСП</span>}
+                {state.filters.onlyReliable && <span>Только надёжные компании</span>}
                 {state.filters.minWinRate > 0 && <span>Победы от {state.filters.minWinRate}%</span>}
               </div>
             )}
@@ -250,10 +254,6 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
               </div>
             ) : (
               <>
-                <div className="ranking-note">
-                  <span className="explanation-dot" />
-                  Чем выше в списке, тем лучше соответствует закупке.
-                </div>
                 <div className="supplier-list">
                   {state.response.items.map((supplier, index) => (
                     <SupplierRow
@@ -268,10 +268,6 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
                   <span>
                     Показано {number(state.response.items.length)} из{" "}
                     {number(state.response.total_candidates)}
-                  </span>
-                  <span>
-                    Откройте компанию, чтобы изучить рекомендации
-                    <ArrowUpRight size={13} />
                   </span>
                 </div>
               </>

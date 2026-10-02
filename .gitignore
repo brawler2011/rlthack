@@ -44,6 +44,7 @@ bun.lockb
 
 # Data & DuckDB
 data/Данные 24-25/
+data/Тестовые данные/
 data/*.zip
 data/*.pdf
 data/*.csv

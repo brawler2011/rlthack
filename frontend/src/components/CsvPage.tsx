@@ -113,10 +113,6 @@ export default function CsvPage() {
             </label>
           ))}
         </div>
-        <p className="upload-hint">
-          CSV как в тестовом наборе: UTF-8 или Windows-1251, разделитель «;» или «,». До 2 МБ на
-          файл и до 100 закупок. Файлы связываются по lot_id.
-        </p>
         <div className="upload-actions">
           <button type="submit" className="primary-button" disabled={!notices || !items || loading}>
             {loading ? <LoaderCircle className="spin" size={18} /> : <Upload size={18} />}
@@ -164,7 +160,6 @@ export default function CsvPage() {
               <strong>{number(state.response.total_recommendations)}</strong> рекомендаций
             </span>
           </div>
-          <p className="selection-policy">{state.response.selection_policy}</p>
           <div className="lot-card-list">
             {state.response.lots.map((result) => (
               <details className="lot-result-card" key={result.lot.lot_id}>
