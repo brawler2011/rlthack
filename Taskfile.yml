@@ -184,6 +184,12 @@ tasks:
     cmds:
       - poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
+  predict:
+    desc: "Suppliers for lots from CSVs: task predict -- --notices /abs/notices.csv --items /abs/items.csv --out /abs/out.csv"
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python scripts/08_predict.py {{.CLI_ARGS}}
+
   eval:
     desc: Evaluate supplier recommendations on a time split (Recall@K, MRR)
     dir: '{{.BACKEND_DIR}}'

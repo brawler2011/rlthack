@@ -72,6 +72,7 @@ CSV uploads do not look up historical winners.
 | `03_enrich_roles --download` | ~15 min (2.1 GB download) | 490k SME registry companies of SPb / LO with roles |
 | `04_build_embeddings` | ~16 min on 4 CPU cores | vectors of 414k unique lot texts |
 | `05_train_ranker` | ~11 min | CatBoost ranker |
+| `08_predict` | ~0.2–0.5 s per lot | suppliers for lots from a notices CSV and an items CSV, written to a CSV (`task predict -- --help`) |
 
 `docker compose up --build` builds the all-in-one image (API + UI on :8000) and mounts `data/` and
 `backend/models/`, so run `task pipeline` first. The image pulls PyTorch and is large.
