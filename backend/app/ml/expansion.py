@@ -2,12 +2,12 @@
 
 OKPD2 codes of goods rarely share digits with the OKVED of those who supply them (medicines are
 won by wholesalers with OKVED 46.46), so the fit is learned from history: for each OKPD2 group,
-the share of wins taken by companies of each main OKVED group. A registry company scores that
-share for its main OKVED group, half of it for an additional one, plus a bonus when it declares
-making a product with the lot's code. Size, region and age only break ties inside a group.
-
-Licenses narrow a group for regulated goods: the share of wins taken by holders of a license
-(pharmacy, medical, waste) is learned the same way and adds to the score of its holders.
+the share of wins taken by companies of each main OKVED group. A registry company scores its
+group's share per company still in the pool (a big group's share is spread over more companies),
+half of it for an additional OKVED, plus a bonus when it declares making a product with the
+lot's code. Licenses narrow a group for regulated goods: the share of wins taken by holders of
+a license (pharmacy, medical, waste) is learned the same way and adds to the holders' score.
+Size, region and age only break ties.
 """
 
 import re
@@ -20,10 +20,13 @@ import numpy as np
 
 EXTRA_OKVED_WEIGHT = 0.5
 PRODUCT_BONUS = 1.0
-LICENSE_WEIGHT = 0.5
 MIN_WINS = 3  # OKPD2 keys with fewer wins fall back to the class level
 MIN_LIFT = 3  # a license counts for a lot if its winners hold it this much more often than usual
 MIN_LICENSE_SHARE = 0.05  # and at least this share of the lot's winners holds it
+# New companies come from Saint Petersburg and Leningrad Region. Companies of other regions are
+# in the table only because they bid somewhere in the data: in an evaluation they would be
+# future bidders, a leak; in production they are all known already.
+LOCAL_REGIONS = ("78", "47")
 
 WINS_SQL = """
 SELECT array_agg(DISTINCT i.okpd2_code), c.okved_main
@@ -144,6 +147,7 @@ class Registry:
     by_extra: dict[str, np.ndarray]
     by_product: dict[str, np.ndarray]  # product code prefix (XX.XX or XX.XX.XX) -> rows
     by_license: dict[str, np.ndarray]
+    local: np.ndarray  # registered in LOCAL_REGIONS
 
 
 def load_registry(conn) -> Registry:
@@ -179,6 +183,7 @@ def load_registry(conn) -> Registry:
         by_extra=arrays(by_extra),
         by_product=arrays(by_product),
         by_license=arrays(by_license),
+        local=np.array([r[4] in LOCAL_REGIONS for r in rows]),
     )
 
 
@@ -190,13 +195,16 @@ def expand(
     day: int,
     top: int | None = 100,
     licenses: Affinity | None = None,
+    explain: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Top registry companies for a lot: rows, scores and a reason for each.
+    """Top registry companies for a lot: rows, scores relative to the best and a reason for each.
 
     exclude: boolean mask of companies to skip (already known suppliers);
     day: the lot date, companies that entered the registry later are skipped;
-    licenses: the license fit, its holders get LICENSE_WEIGHT times the share of wins.
+    licenses: the license fit, its holders score the share of wins per holder;
+    explain: False skips the reasons (an empty list), for evaluations over the whole pool.
     """
+    alive = registry.local & ~exclude & (registry.since_day <= day)
     score = np.zeros(len(registry.inns))
     reasons: list[str] = []  # texts; why[row] points into it, built only for the shown companies
     why = np.full(len(registry.inns), -1)
@@ -207,12 +215,17 @@ def expand(
         why[better] = len(reasons)
         reasons.append(text)
 
+    def per_company(share, rows):
+        """A share of the wins spread over the companies of the group still in the pool."""
+        return share / max(int(alive[rows].sum()), 1)
+
     for group, share in affinity.for_codes(okpd2_codes).items():
         wins = f"такие компании выигрывают {share:.0%} похожих лотов"
         if (rows := registry.by_main.get(group)) is not None:
-            offer(rows, share, f"основной ОКВЭД {group}: {wins}")
+            offer(rows, per_company(share, rows), f"основной ОКВЭД {group}: {wins}")
         if (rows := registry.by_extra.get(group)) is not None:
-            offer(rows, EXTRA_OKVED_WEIGHT * share, f"дополнительный ОКВЭД {group}: {wins}")
+            value = per_company(EXTRA_OKVED_WEIGHT * share, rows)
+            offer(rows, value, f"дополнительный ОКВЭД {group}: {wins}")
     # One bonus per company; the reason names the most specific matching code.
     declared = np.zeros(len(registry.inns), dtype=bool)
     codes = {c[:8] for c in okpd2_codes} | {c[:5] for c in okpd2_codes}
@@ -223,25 +236,31 @@ def expand(
             why[rows] = len(reasons)
             reasons.append(f"заявляет выпуск продукции {code}")
     score[declared] += PRODUCT_BONUS
-    # One license per company: the one whose holders win the largest share of such lots.
+    # One license per company: the one with the largest share of wins per holder.
     bonus = np.zeros(len(registry.inns))
     why_license = np.full(len(registry.inns), -1)
-    fits = licenses.for_codes(okpd2_codes) if licenses else {}
-    for license_, share in sorted(fits.items(), key=lambda kv: (-kv[1], kv[0])):
-        if (rows := registry.by_license.get(license_)) is not None:
-            rows = rows[bonus[rows] == 0]
-            bonus[rows] = LICENSE_WEIGHT * share
-            why_license[rows] = len(reasons)
-            wins = f"её владельцы выигрывают {share:.0%} похожих лотов"
-            reasons.append(f"лицензия «{short_license(license_)}»: {wins}")
+    fits = [
+        (per_company(share, rows), license_, share, rows)
+        for license_, share in (licenses.for_codes(okpd2_codes) if licenses else {}).items()
+        if (rows := registry.by_license.get(license_)) is not None
+    ]
+    for value, license_, share, rows in sorted(fits, key=lambda f: (-f[0], f[1])):
+        rows = rows[bonus[rows] == 0]
+        bonus[rows] = value
+        why_license[rows] = len(reasons)
+        wins = f"её владельцы выигрывают {share:.0%} похожих лотов"
+        reasons.append(f"лицензия «{short_license(license_)}»: {wins}")
     score += bonus
 
-    score[exclude | (registry.since_day > day)] = 0
+    score[~alive] = 0
     found = np.flatnonzero(score > 0)
     # Lexicographic: the score first, the prior only orders companies with equal scores.
     order = found[np.lexsort((-registry.prior[found], -score[found]))][:top]  # top=None: all
+    relative = score[order] / score[order[0]] if len(order) else score[order]
+    if not explain:
+        return order, relative, []
     texts = [
         "; ".join(reasons[i] for i in pair if i >= 0)
         for pair in zip(why[order].tolist(), why_license[order].tolist(), strict=True)
     ]
-    return order, score[order], texts
+    return order, relative, texts
