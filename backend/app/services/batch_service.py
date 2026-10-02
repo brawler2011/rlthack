@@ -32,7 +32,9 @@ class BatchService:
             request = SearchRequest(
                 lot_id=lot.lot_id,
                 lot=None,
-                filters=SearchFilters(roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0),
+                filters=SearchFilters(
+                    roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0, only_reliable=False
+                ),
                 limit=per_lot,
                 new_limit=new_per_lot,
             )

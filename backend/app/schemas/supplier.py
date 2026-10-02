@@ -21,6 +21,10 @@ class SearchFilters(ContractModel):
     only_spb_lo: bool
     only_smp: bool
     min_win_rate: float = Field(ge=0, le=1, description="Zero disables the win-rate filter")
+    only_reliable: bool = Field(
+        description="Skip companies that are liquidated, owe taxes or have a revenue below the "
+        "lot's initial price (open FNS data)"
+    )
 
 
 class SearchRequest(ContractModel):
@@ -56,6 +60,9 @@ class SupplierRecommendation(ContractModel):
     is_smp: bool | None = Field(description="In the FNS SME registry")
     is_actual_winner: bool = Field(description="Won this lot in reality (demo)")
     explanation: Explanation
+    warnings: list[str] = Field(
+        description="Reliability warnings: tax debt, loss, revenue vs. the lot price"
+    )
 
 
 class NewSupplier(ContractModel):
@@ -88,6 +95,19 @@ class OkpdExperience(ContractModel):
     n_wins: int
 
 
+class CompanyTrust(ContractModel):
+    """Open FNS data: accounting statements, taxes, EGRUL."""
+
+    revenue: float | None = Field(description="Income for the last year, RUB")
+    expenses: float | None = Field(description="Expenses for the last year, RUB")
+    taxes_paid: float | None = Field(description="Taxes and contributions paid, RUB")
+    tax_debt: float | None = Field(description="Tax arrears, penalties and fines, RUB")
+    headcount: int | None
+    registered: date | None
+    status: str | None = Field(description="ACTIVE, LIQUIDATED, ... from the statements registry")
+    warnings: list[str]
+
+
 class SupplierCard(ContractModel):
     """Everything known about a company: history from the data plus the SME registry."""
 
@@ -111,3 +131,4 @@ class SupplierCard(ContractModel):
     n_customers: int
     top_okpd2: list[OkpdExperience]
     recent_lots: list[EvidenceLot]
+    trust: CompanyTrust | None = Field(description="None without open FNS data")

@@ -42,6 +42,7 @@ FIELDS = (
     "n_bids",
     "win_rate",
     "reason",
+    "warnings",
 )
 KS = (1, 5, 10, 20)
 
@@ -69,7 +70,9 @@ def main():
         texts = [lot_text(lot.subject, lot.items) for lot in lots]
         vectors = encode(engine.encoder, texts, progress=True)
 
-    filters = SearchFilters(roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0)
+    filters = SearchFilters(
+        roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0, only_reliable=False
+    )
     # Month by month: the engine keeps a few history snapshots.
     order = sorted(range(len(lots)), key=lambda i: lots[i].publish_date or date.max)
     predicted: dict[int, list[str]] = {}
@@ -113,12 +116,12 @@ def main():
                 win_rate = "" if s.win_rate is None else round(s.win_rate, 3)
                 writer.writerow(
                     (lot.lot_id, s.rank, s.inn, s.name or "", s.role, s.score, 0)
-                    + (s.n_wins, s.n_bids, win_rate, s.explanation.summary)
+                    + (s.n_wins, s.n_bids, win_rate, s.explanation.summary, "; ".join(s.warnings))
                 )
             for rank, s in enumerate(result.new_suppliers, start=1):
                 writer.writerow(
                     (lot.lot_id, rank, s.inn, s.name or "", s.role, s.score, 1, "", "", "")
-                    + (s.reason,)
+                    + (s.reason, "")
                 )
             predicted[lot.lot_id] = [s.inn for s in result.items]
             if done % 500 == 0:

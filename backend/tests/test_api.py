@@ -33,7 +33,13 @@ def test_search_waits_for_the_engine(no_db):
         json={
             "lot_id": 1,
             "lot": None,
-            "filters": {"roles": [], "only_spb_lo": False, "only_smp": False, "min_win_rate": 0},
+            "filters": {
+                "roles": [],
+                "only_spb_lo": False,
+                "only_smp": False,
+                "min_win_rate": 0,
+                "only_reliable": False,
+            },
             "limit": 20,
             "new_limit": 10,
         },
@@ -119,16 +125,26 @@ def test_supplier_card(api_db):
 
 
 @requires_db
-def test_supplier_card_takes_the_name_from_organizations(api_db, db):
-    """Suppliers outside the SME registry get their name from 09_organizations."""
+def test_supplier_card_outside_the_registry_from_fns_data(api_db, db):
+    """Name, role by OKVED and reliability of a supplier outside the SME registry."""
     pipeline.run_sql_file(db, "organizations_schema.sql")
     db.execute(
-        "INSERT INTO organizations VALUES ('7811383967', 'СПб ГБУ «ТЕСТ»', NULL, NULL, 'egrul')"
+        "INSERT INTO organizations (inn, name, okved, status, revenue, expenses, tax_debt, source) "
+        "VALUES ('7811383967', 'ООО «ОПТ»', '46.69.8', 'ACTIVE', 2e6, 3e6, 0, 'egrul')"
     )
     db.commit()
     try:
         card = client.get("/api/v1/enrichment/7811383967").json()
-        assert (card["name"], card["role"]) == ("СПб ГБУ «ТЕСТ»", "UNKNOWN")
+        assert (card["name"], card["role"], card["okved_main"]) == (
+            "ООО «ОПТ»",
+            "DISTRIBUTOR",
+            "46.69.8",
+        )
+        assert card["trust"]["revenue"] == 2e6
+        assert card["trust"]["warnings"] == [
+            "Убыток за последний год: расходы 3,0 млн ₽ при доходах 2,0 млн ₽"
+        ]
+        assert client.get("/api/v1/enrichment/7802587594").json()["trust"] is None
     finally:
         db.execute("DROP TABLE organizations")
         db.commit()

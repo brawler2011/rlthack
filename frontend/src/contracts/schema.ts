@@ -197,6 +197,43 @@ export interface components {
        */
       notices: string;
     };
+    /**
+     * CompanyTrust
+     * @description Open FNS data: accounting statements, taxes, EGRUL.
+     */
+    CompanyTrust: {
+      /**
+       * Expenses
+       * @description Expenses for the last year, RUB
+       */
+      expenses: number | null;
+      /** Headcount */
+      headcount: number | null;
+      /** Registered */
+      registered: string | null;
+      /**
+       * Revenue
+       * @description Income for the last year, RUB
+       */
+      revenue: number | null;
+      /**
+       * Status
+       * @description ACTIVE, LIQUIDATED, ... from the statements registry
+       */
+      status: string | null;
+      /**
+       * Tax Debt
+       * @description Tax arrears, penalties and fines, RUB
+       */
+      tax_debt: number | null;
+      /**
+       * Taxes Paid
+       * @description Taxes and contributions paid, RUB
+       */
+      taxes_paid: number | null;
+      /** Warnings */
+      warnings: string[];
+    };
     /** CsvBatchErrorResponse */
     CsvBatchErrorResponse: {
       /** Detail */
@@ -426,6 +463,11 @@ export interface components {
        * @description Zero disables the win-rate filter
        */
       min_win_rate: number;
+      /**
+       * Only Reliable
+       * @description Skip companies that are liquidated, owe taxes or have a revenue below the lot's initial price (open FNS data)
+       */
+      only_reliable: boolean;
       /** Only Smp */
       only_smp: boolean;
       /** Only Spb Lo */
@@ -511,6 +553,8 @@ export interface components {
       role_reason: string | null;
       /** Top Okpd2 */
       top_okpd2: components["schemas"]["OkpdExperience"][];
+      /** @description None without open FNS data */
+      trust: components["schemas"]["CompanyTrust"] | null;
       /** Win Rate */
       win_rate: number | null;
     };
@@ -557,6 +601,11 @@ export interface components {
        * @description Relevance in [0, 1] within this result
        */
       score: number;
+      /**
+       * Warnings
+       * @description Reliability warnings: tax debt, loss, revenue vs. the lot price
+       */
+      warnings: string[];
       /**
        * Win Rate
        * @description Over contested lots; None if none

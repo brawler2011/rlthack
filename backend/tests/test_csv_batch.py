@@ -174,7 +174,9 @@ def test_automatic_selection_varies_with_relevance(scores, expected):
         actual_winners=[],
     )
     conn = SimpleNamespace(execute=lambda *args: SimpleNamespace(fetchall=lambda: []))
-    filters = SearchFilters(roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0)
+    filters = SearchFilters(
+        roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0, only_reliable=False
+    )
     result = engine.search(conn, card, SimpleNamespace(day=1), [], filters, 100, 50, automatic=True)
     assert len(result.items) == expected
     # The existing single-lot flow still uses the caller's limit.

@@ -34,6 +34,13 @@ from app.schemas.supplier import (
     SupplierRecommendation,
 )
 from app.schemas.xai import EvidenceLot
+from app.services.trust import (
+    HAS_TABLE_SQL,
+    is_reliable,
+    role_from_okved,
+    trust_rows,
+    warnings,
+)
 
 MAX_HISTORIES = 4  # cached history snapshots (one per month of the lots looked at)
 WARM_MONTHS = 3  # the latest months are prepared at startup: demo lots come from there
@@ -46,7 +53,6 @@ SELECT inn, name, role, role_reason, okved_main, okved_main_name, region_code, m
        headcount
 FROM companies WHERE inn = ANY(%s)
 """
-ORGANIZATIONS_SQL = "SELECT inn, name FROM organizations WHERE inn = ANY(%s)"
 EVIDENCE_SQL = """
 SELECT b.supplier_inn, l.lot_id, l.publish_date, l.subject, l.start_price::float8 AS start_price,
        b.is_winner
@@ -87,9 +93,7 @@ class Engine:
             self.affinity = affinity_from_db(conn)
             self.licenses = license_affinity_from_db(conn)
             # Names of suppliers outside the SME registry, if 09_organizations was loaded.
-            self.has_organizations = bool(
-                conn.execute("SELECT to_regclass('organizations') IS NOT NULL").fetchone()[0]
-            )
+            self.has_organizations = bool(conn.execute(HAS_TABLE_SQL).fetchone()[0])
         self.model = ranker.load(settings.catboost_model_path)
         if list(self.model.feature_names_) != list(FEATURES):
             raise RuntimeError("The ranker was trained on other features: rerun 05_train_ranker")
@@ -159,16 +163,17 @@ class Engine:
 
         inns = hist.inns[candidates].tolist()
         companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (inns,)).fetchall()}
+        trust = trust_rows(conn, inns) if self.has_organizations else {}
         stats = hist.stats
         keep = [
             i
             for i, inn in enumerate(inns)
             if self._passes(filters, companies.get(inn), stats, int(candidates[i]))
+            and (not filters.only_reliable or is_reliable(trust.get(inn), card.start_price))
             and (not automatic or relevance[i] >= AUTO_RELEVANCE_THRESHOLD)
         ][:limit]
 
         shown = [inns[i] for i in keep]
-        names = self._organization_names(conn, [inn for inn in shown if inn not in companies])
         shap = self._shap(features[keep]) if keep else np.zeros((0, len(FEATURES)))
         evidence = self._evidence(conn, retrieval, cutoff, shown)
         customer = self._customer_history(conn, card.customer_inn, cutoff, shown)
@@ -185,15 +190,18 @@ class Engine:
             facts.repeat_days = values["cust_days_since_win"]
             facts.days_since_bid = values["days_since_bid"]
             facts.active_bids = round(float(np.expm1(values["log_active_bids"])))
-            role = company.get("role") or "UNKNOWN"
+            org = trust.get(inn) or {}
+            role, role_reason = company.get("role"), company.get("role_reason")
+            if role is None:  # outside the SME registry: OKVED from the statements, if known
+                role, role_reason = role_from_okved(org.get("okved"))
             items.append(
                 SupplierRecommendation(
                     rank=rank,
                     inn=inn,
-                    name=company.get("name") or names.get(inn),
+                    name=company.get("name") or org.get("name"),
                     role=role,
                     role_display=ROLE_DISPLAY[role],
-                    role_reason=company.get("role_reason"),
+                    role_reason=role_reason,
                     score=round(float(relevance[i]), 3),
                     win_rate=facts.win_rate,
                     n_bids=facts.bids,
@@ -204,6 +212,7 @@ class Engine:
                     is_smp=bool(company) or None,
                     is_actual_winner=inn in winners,
                     explanation=explain(shap[rank - 1], facts, float(relevance[i])),
+                    warnings=warnings(org, card.start_price),
                 )
             )
 
@@ -218,11 +227,6 @@ class Engine:
             total_candidates=len(candidates),
             timing_ms=round((time.perf_counter() - started) * 1000, 1),
         )
-
-    def _organization_names(self, conn, inns: list[str]) -> dict[str, str]:
-        if not self.has_organizations or not inns:
-            return {}
-        return {r["inn"]: r["name"] for r in conn.execute(ORGANIZATIONS_SQL, (inns,)).fetchall()}
 
     @staticmethod
     def _passes(filters: SearchFilters, company: dict | None, stats: dict, col: int) -> bool:

@@ -1,7 +1,8 @@
 from fastapi import HTTPException
 
-from app.schemas.supplier import ROLE_DISPLAY, OkpdExperience, SupplierCard
+from app.schemas.supplier import ROLE_DISPLAY, CompanyTrust, OkpdExperience, SupplierCard
 from app.schemas.xai import EvidenceLot
+from app.services.trust import has_table, role_from_okved, trust_rows, warnings
 
 CARD_SQL = """
 SELECT coalesce(c.inn, p.inn) AS inn, c.name, c.role, c.role_reason, c.okved_main,
@@ -19,8 +20,6 @@ OKPD2_SQL = """
 SELECT prefix, n_bids, n_wins FROM supplier_okpd2
 WHERE inn = %s AND level = 4 ORDER BY n_wins DESC, n_bids DESC LIMIT 5
 """
-ORGANIZATION_SQL = "SELECT name FROM organizations WHERE inn = %s"
-HAS_ORGANIZATIONS_SQL = "SELECT to_regclass('organizations') IS NOT NULL AS ok"
 RECENT_SQL = """
 SELECT l.lot_id, l.publish_date, l.subject, l.start_price::float8 AS start_price,
        b.is_winner AS won
@@ -36,10 +35,13 @@ class EnrichmentService:
         card = conn.execute(CARD_SQL, {"inn": inn}).fetchone()
         if card is None:
             raise HTTPException(404, f"Компания с ИНН {inn} не найдена")
-        role = card.pop("role") or "UNKNOWN"
-        if card["name"] is None and conn.execute(HAS_ORGANIZATIONS_SQL).fetchone()["ok"]:
-            org = conn.execute(ORGANIZATION_SQL, (inn,)).fetchone()
-            card["name"] = org["name"] if org else None
+        role = card.pop("role")
+        org = trust_rows(conn, [inn]).get(inn) if has_table(conn) else None
+        if org and role is None:  # outside the SME registry: name and OKVED from FNS
+            card["name"] = card["name"] or org["name"]
+            role, card["role_reason"] = role_from_okved(org["okved"])
+            card["okved_main"] = card["okved_main"] or org["okved"]
+        role = role or "UNKNOWN"
         return SupplierCard(
             **{k: v for k, v in card.items() if k != "okved_main_name"},
             okved_name=card["okved_main_name"],
@@ -47,6 +49,18 @@ class EnrichmentService:
             role_display=ROLE_DISPLAY[role],
             top_okpd2=[OkpdExperience(**r) for r in conn.execute(OKPD2_SQL, (inn,)).fetchall()],
             recent_lots=[EvidenceLot(**r) for r in conn.execute(RECENT_SQL, (inn,)).fetchall()],
+            trust=self._trust(org),
+        )
+
+    @staticmethod
+    def _trust(org: dict | None) -> CompanyTrust | None:
+        if not org:
+            return None
+        return CompanyTrust(
+            **{k: org[k] for k in ("revenue", "expenses", "taxes_paid", "tax_debt", "headcount")},
+            registered=org["registered"],
+            status=org["status"],
+            warnings=warnings(org, None),
         )
 
 

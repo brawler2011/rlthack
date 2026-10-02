@@ -24,7 +24,13 @@ LOT = {
     "customer_inn": None,
     "channel": None,
 }
-FILTERS = {"roles": [], "only_spb_lo": False, "only_smp": False, "min_win_rate": 0}
+FILTERS = {
+    "roles": [],
+    "only_spb_lo": False,
+    "only_smp": False,
+    "min_win_rate": 0,
+    "only_reliable": False,
+}
 REQUEST = {"lot_id": None, "lot": LOT, "filters": FILTERS, "limit": 20, "new_limit": 10}
 
 
