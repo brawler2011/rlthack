@@ -7,16 +7,14 @@ group's share per company still in the pool (a big group's share is spread over 
 half of it for an additional OKVED, plus a bonus when it declares making a product with the
 lot's code. Licenses narrow a group for regulated goods: the share of wins taken by holders of
 a license (pharmacy, medical, waste) is learned the same way and adds to the holders' score.
-
-The score is multiplied by how much more often companies of its profile (category, staff, years
-in the registry, region) win their first lots: learned on the newcomers of the last quarter.
+Size, region and age only break ties.
 """
 
 import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 
 import numpy as np
 
@@ -25,19 +23,10 @@ PRODUCT_BONUS = 1.0
 MIN_WINS = 3  # OKPD2 keys with fewer wins fall back to the class level
 MIN_LIFT = 3  # a license counts for a lot if its winners hold it this much more often than usual
 MIN_LICENSE_SHARE = 0.05  # and at least this share of the lot's winners holds it
-
-NEWCOMER_DAYS = 91  # the profile weights are learned on first wins in this window
-PROFILE_PSEUDO = 2000  # smoothing: each profile starts as this many average companies
-MIN_PROFILE_LIFT = 1.5  # the reason names the profile from this weight
-OLD_DAYS = 5 * 365
 # New companies come from Saint Petersburg and Leningrad Region. Companies of other regions are
 # in the table only because they bid somewhere in the data: in an evaluation they would be
 # future bidders, a leak; in production they are all known already.
 LOCAL_REGIONS = ("78", "47")
-STAFF_BOUNDS = (1, 5, 20)  # staff buckets 0, 1-4, 5-19, 20+
-SOLE_TRADER = 9  # their staff is not published
-CATEGORIES = {1: "микропредприятие", 2: "малое предприятие", 3: "среднее предприятие"}
-STAFF = {0: "без сотрудников", 1: "1–4 сотрудника", 2: "5–19 сотрудников", 3: "20+ сотрудников"}
 
 WINS_SQL = """
 SELECT array_agg(DISTINCT i.okpd2_code), c.okved_main
@@ -61,20 +50,9 @@ GROUP BY b.lot_id, c.inn
 
 REGISTRY_SQL = """
 SELECT inn, okved_main, okved_extra, products, region_code, msp_category, headcount,
-       (msp_since - DATE '1970-01-01'), licenses, is_individual
+       (msp_since - DATE '1970-01-01'), licenses
 FROM companies ORDER BY inn
 """
-
-KNOWN_SQL = """
-SELECT DISTINCT b.supplier_inn FROM bids b JOIN lots l USING (lot_id) WHERE l.publish_date < %s
-"""
-
-WINNERS_SQL = """
-SELECT DISTINCT b.supplier_inn FROM bids b JOIN lots l USING (lot_id)
-WHERE b.is_winner AND l.publish_date >= %s AND l.publish_date < %s
-"""
-
-NEXT_DAY_SQL = "SELECT max(publish_date) + 1 FROM lots"
 
 
 @dataclass
@@ -165,30 +143,18 @@ class Registry:
     main_group: np.ndarray  # main OKVED group per company, "" if unknown
     since_day: np.ndarray  # in the registry since, days since 1970-01-01
     prior: np.ndarray  # in [0, 1): orders companies with equal scores
-    profile: np.ndarray  # category * 100 + staff bucket * 10 + in Saint Petersburg
-    local: np.ndarray  # registered in LOCAL_REGIONS
     by_main: dict[str, np.ndarray]  # OKVED group -> rows
     by_extra: dict[str, np.ndarray]
     by_product: dict[str, np.ndarray]  # product code prefix (XX.XX or XX.XX.XX) -> rows
     by_license: dict[str, np.ndarray]
-
-    def segments(self, day: int) -> np.ndarray:
-        """Profile and whether the company had been in the registry for 5 years by the day."""
-        return self.profile * 10 + (day - self.since_day > OLD_DAYS)
-
-    def describe(self, row: int, day: int) -> str:
-        category, staff = divmod(int(self.profile[row]) // 10, 10)
-        parts = ["ИП"] if staff == SOLE_TRADER else [CATEGORIES.get(category), STAFF[staff]]
-        if day - self.since_day[row] > OLD_DAYS:
-            parts.append("5+ лет в реестре МСП")
-        return ", ".join(p for p in parts if p)
+    local: np.ndarray  # registered in LOCAL_REGIONS
 
 
 def load_registry(conn) -> Registry:
     rows = conn.execute(REGISTRY_SQL).fetchall()
     by_main, by_extra, by_product = defaultdict(list), defaultdict(list), defaultdict(list)
     by_license = defaultdict(list)
-    for i, (_, main, extra, products, *_, licenses, _individual) in enumerate(rows):
+    for i, (_, main, extra, products, *_, licenses) in enumerate(rows):
         if main:
             by_main[main[:5]].append(i)
         for group in {e[:5] for e in extra} - {(main or "")[:5]}:
@@ -204,8 +170,6 @@ def load_registry(conn) -> Registry:
     since = np.array([r[7] if r[7] is not None else 0 for r in rows], dtype=np.int64)
     years = np.minimum((since.max(initial=0) - since) / 365, 10)
     prior = 0.3 * category / 3 + 0.2 * np.log1p(headcount) / 7 + 0.3 * spb + 0.2 * years / 10
-    individual = np.array([bool(r[9]) for r in rows])
-    staff = np.where(individual, SOLE_TRADER, np.searchsorted(STAFF_BOUNDS, headcount, "right"))
 
     def arrays(index):
         return {key: np.array(rows_, dtype=np.int64) for key, rows_ in index.items()}
@@ -215,45 +179,12 @@ def load_registry(conn) -> Registry:
         main_group=np.array([(r[1] or "")[:5] for r in rows]),
         since_day=since,
         prior=np.clip(prior, 0, 0.999),
-        profile=category.astype(np.int64) * 100 + staff * 10 + spb.astype(np.int64),
-        local=np.array([r[4] in LOCAL_REGIONS for r in rows]),
         by_main=arrays(by_main),
         by_extra=arrays(by_extra),
         by_product=arrays(by_product),
         by_license=arrays(by_license),
+        local=np.array([r[4] in LOCAL_REGIONS for r in rows]),
     )
-
-
-def learn_profile_lift(
-    segment: np.ndarray, pool: np.ndarray, won: np.ndarray, pseudo: float = PROFILE_PSEUDO
-) -> dict[int, float]:
-    """How many times more often than average the pool companies of each segment won."""
-    rate = won[pool].sum() / max(pool.sum(), 1)
-    if rate == 0:
-        return {}
-    segments, inverse = np.unique(segment[pool], return_inverse=True)
-    counts = np.bincount(inverse)
-    wins = np.bincount(inverse, weights=won[pool].astype(float))
-    lift = (wins + pseudo * rate) / (counts + pseudo) / rate
-    return dict(zip(segments.tolist(), lift.tolist(), strict=True))
-
-
-def profile_weights_from_db(conn, registry: Registry, before: date | None = None) -> np.ndarray:
-    """Per company: how many times more often its profile wins first lots than average.
-
-    Learned on the quarter before the date (default: after the last lot): winners who had not
-    bid before the quarter, among the registry companies that had not bid either.
-    """
-    if before is None:
-        before = conn.execute(NEXT_DAY_SQL).fetchone()[0]
-    start = before - timedelta(days=NEWCOMER_DAYS)
-    known = [r[0] for r in conn.execute(KNOWN_SQL, (start,)).fetchall()]
-    winners = [r[0] for r in conn.execute(WINNERS_SQL, (start, before)).fetchall()]
-    start_day, before_day = ((d - date(1970, 1, 1)).days for d in (start, before))
-    pool = registry.local & ~np.isin(registry.inns, known) & (registry.since_day <= start_day)
-    won = np.isin(registry.inns, winners)
-    lift = learn_profile_lift(registry.segments(start_day), pool, won)
-    return np.array([lift.get(s, 1.0) for s in registry.segments(before_day).tolist()])
 
 
 def expand(
@@ -264,7 +195,6 @@ def expand(
     day: int,
     top: int | None = 100,
     licenses: Affinity | None = None,
-    weights: np.ndarray | None = None,
     explain: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Top registry companies for a lot: rows, scores relative to the best and a reason for each.
@@ -272,7 +202,6 @@ def expand(
     exclude: boolean mask of companies to skip (already known suppliers);
     day: the lot date, companies that entered the registry later are skipped;
     licenses: the license fit, its holders score the share of wins per holder;
-    weights: per company, how much more often its profile wins (profile_weights_from_db);
     explain: False skips the reasons (an empty list), for evaluations over the whole pool.
     """
     alive = registry.local & ~exclude & (registry.since_day <= day)
@@ -322,26 +251,16 @@ def expand(
         wins = f"её владельцы выигрывают {share:.0%} похожих лотов"
         reasons.append(f"лицензия «{short_license(license_)}»: {wins}")
     score += bonus
-    if weights is not None:
-        score *= weights
 
     score[~alive] = 0
     found = np.flatnonzero(score > 0)
     # Lexicographic: the score first, the prior only orders companies with equal scores.
     order = found[np.lexsort((-registry.prior[found], -score[found]))][:top]  # top=None: all
-    best = score[order[0]] if len(order) else 1.0
+    relative = score[order] / score[order[0]] if len(order) else score[order]
     if not explain:
-        return order, score[order] / best, []
+        return order, relative, []
     texts = [
         "; ".join(reasons[i] for i in pair if i >= 0)
         for pair in zip(why[order].tolist(), why_license[order].tolist(), strict=True)
     ]
-    if weights is not None:
-        for k, row in enumerate(order.tolist()):
-            if weights[row] >= MIN_PROFILE_LIFT:
-                times = f"{weights[row]:.1f}".replace(".", ",")
-                texts[k] += (
-                    f"; профиль «{registry.describe(row, day)}»: "
-                    f"среди новых победителей в {times} раза чаще среднего"
-                )
-    return order, score[order] / best, texts
+    return order, relative, texts

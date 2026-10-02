@@ -4,7 +4,6 @@ from app.ml.expansion import (
     expand,
     learn_affinity,
     learn_license_affinity,
-    learn_profile_lift,
     load_registry,
     short_license,
 )
@@ -23,17 +22,17 @@ class FakeConn:
 
 PHARMACY = "фармацевтическая деятельность"
 
-# inn, okved_main, okved_extra, products, region, category, headcount, days since 1970,
-# licenses, sole trader
+# inn, okved_main, okved_extra, products, region, category, headcount, days since 1970, licenses
 ROWS = [
-    ("A", "47.11", [], ["21.20.10"], "78", 1, 5, 100, [], False),  # declares the product itself
-    ("B", "46.46", [], [], "47", 1, 5, 100, [PHARMACY], False),  # the typical winner group, small
-    ("C", "46.46", [], [], "78", 3, 900, 100, [], False),  # the same group, bigger and in SPb
-    ("D", "47.73", ["46.46.1"], [], "78", 1, 5, 100, [], False),  # 46.46 as an additional OKVED
-    ("E", "46.90", [], [], "78", 3, 900, 100, [], False),  # a rarer winner group, alone in it
-    ("F", "46.46", [], [], "78", 3, 900, 100, [], False),  # already known from bids
-    ("G", "46.46", [], [], "78", 3, 900, 500, [], False),  # entered the registry after the lot
-    ("H", "62.01", [], [], "78", 3, 900, 100, [], True),  # never wins such lots
+    ("A", "47.11", [], ["21.20.10"], "78", 1, 5, 100, []),  # declares the product itself
+    ("B", "46.46", [], [], "47", 1, 5, 100, [PHARMACY]),  # the typical winner group, small
+    ("C", "46.46", [], [], "78", 3, 900, 100, []),  # the same group, bigger and in SPb
+    ("D", "47.73", ["46.46.1"], [], "78", 1, 5, 100, []),  # 46.46 as an additional OKVED
+    ("E", "46.90", [], [], "78", 3, 900, 100, []),  # a rarer winner group, alone in it
+    ("F", "46.46", [], [], "78", 3, 900, 100, []),  # already known from bids
+    ("G", "46.46", [], [], "78", 3, 900, 500, []),  # entered the registry after the lot
+    ("H", "62.01", [], [], "78", 3, 900, 100, []),  # never wins such lots
+    ("I", "46.46", [], [], "77", 3, 900, 100, []),  # another region: in the table as a bidder
 ]
 
 # Medicines (OKPD2 21.20) are won by pharmacy wholesalers (OKVED 46.46) 3 times out of 4.
@@ -64,7 +63,8 @@ def test_expand_orders_by_learned_fit_and_skips_known_and_later():
         registry, affinity, ["21.20.10.190"], np.isin(registry.inns, ["F"]), day=200
     )
 
-    # A declares the product. B and C split 75% of the wins of 46.46 (F is known, G is later);
+    # A declares the product. B and C split 75% of the wins of 46.46 (F is known, G is later,
+    # I is from another region);
     # D alone has it as an additional OKVED: half of 75%. The prior orders the three.
     assert registry.inns[rows].tolist() == ["A", "C", "D", "B", "E"]
     assert list(scores) == [1.0, 0.375, 0.375, 0.375, 0.25]  # relative to A's product bonus
@@ -114,36 +114,3 @@ def test_short_license_drops_clarifications():
     assert short_license("размещение отходов i - iv классов опасности") == (
         "размещение отходов I - IV классов опасности"
     )
-
-
-def test_profile_weights_multiply_the_score_and_are_named():
-    registry = load_registry(FakeConn(ROWS))
-    weights = np.ones(len(ROWS))
-    weights[1] = 2.0  # B's profile wins twice as often as average
-
-    rows, scores, reasons = expand(
-        registry,
-        learn_affinity(WINS),
-        ["21.20.10.190"],
-        np.isin(registry.inns, ["F"]),
-        day=200,
-        weights=weights,
-    )
-
-    assert registry.inns[rows].tolist()[:2] == ["A", "B"]
-    assert scores[1] == 0.75
-    assert reasons[1].endswith(
-        "профиль «микропредприятие, 5–19 сотрудников»: среди новых победителей в 2,0 раза чаще "
-        "среднего"
-    )
-
-
-def test_learn_profile_lift_against_the_average_rate():
-    segment = np.array([1, 1, 1, 1, 2, 2, 3])
-    pool = np.array([True] * 6 + [False])  # the last company is not in the pool
-    won = np.array([1, 1, 0, 0, 0, 0, 1], dtype=bool)
-
-    lift = learn_profile_lift(segment, pool, won, pseudo=0)
-
-    assert lift == {1: 1.5, 2: 0.0}  # 2 of 4 against 2 of 6 overall
-    assert learn_profile_lift(segment, pool, won, pseudo=1e9)[2] > 0.99  # smoothed towards 1
