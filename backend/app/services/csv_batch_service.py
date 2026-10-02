@@ -63,6 +63,17 @@ def read_csv(content: bytes, label: str, columns: set[str], max_rows: int):
     reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter, strict=True)
     try:
         fields = reader.fieldnames or []
+        if delimiter == ";" and {"reqnum", "procedure_name"} <= columns:
+            # Some notice exports quote these two header names as one field,
+            # while data rows still contain separate values. Keep row-width validation.
+            fields = [
+                name
+                for field in fields
+                for name in (
+                    ["reqnum", "procedure_name"] if field == "reqnum;procedure_name" else [field]
+                )
+            ]
+            reader.fieldnames = fields
         if len(fields) != len(set(fields)):
             invalid(label, 1, "названия столбцов повторяются")
         missing = columns - set(fields)

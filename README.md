@@ -51,6 +51,8 @@ The API is up at once; the matching engine loads in the background for about a m
 CSV matching uses `POST /api/v1/batch/csv` with two multipart files: `notices` and `items`.
 Use the columns from `data/Тестовые данные`: notices are joined to product items by `lot_id`.
 UTF-8 (with or without BOM), Windows-1251, semicolon and comma separators are supported.
+Notice exports with a combined `"reqnum;procedure_name"` header are also accepted when
+data rows contain separate values for these two columns.
 Limits: 2 MiB per file, 100 procurements and 5,000 product rows. Both files are fully validated
 before matching starts; invalid rows, duplicate notices, orphan items and procurements without
 items reject the entire run. Uploaded procurements use their CSV fields as new queries without

@@ -27,6 +27,28 @@ NOTICES = (
 ITEMS = "lot_id;product_name;okpd2_code\n6029457;Бумага А4;17.12.14.110\n"
 
 
+def merged_notice_header(notices):
+    header, rows = notices.split("\n", 1)
+    fields = header.split(";")
+    fields[4:6] = ["reqnum;procedure_name"]
+    return ";".join(f'"{field}"' for field in fields) + "\n" + rows
+
+
+@pytest.mark.parametrize("reqnum", ["001", ""])
+def test_merged_notice_header_preserves_separate_row_fields(reqnum):
+    notices = merged_notice_header(NOTICES.replace(";001;", f";{reqnum};"))
+    notices = notices.replace(";Бумага А4;", ';"Бумага А4; белая";')
+    lots, count = parse_uploads(notices.encode("utf-8-sig"), ITEMS.encode("utf-8-sig"))
+    lot = lots[6029457]["lot"]
+    assert count == 1
+    assert lots[6029457]["procedure_name"] == "Поставка бумаги"
+    assert lot.subject == "Бумага А4; белая"
+    assert lot.is_smp is False
+    assert lot.customer_inn == "7805045350"
+    assert lot.channel == "АИС ГЗ"
+    assert lot.items == ["Бумага А4"]
+
+
 def test_real_test_files_are_joined_without_database_lookup():
     data = Path(__file__).resolve().parents[2] / "data" / "Тестовые данные"
     if not data.exists():
@@ -63,6 +85,23 @@ def test_bom_cp1251_and_quoted_multiline_products():
         (NOTICES, ITEMS.replace("Бумага А4", ""), "product_name"),
         (NOTICES, ITEMS + "6029457;Тонер;17.12;лишнее\n", "число полей"),
         (NOTICES, ITEMS + '6029457;"незакрытая строка;17.12\n', "структура CSV"),
+        (
+            merged_notice_header(NOTICES).replace(
+                ";001;Поставка бумаги;", ';"001;Поставка бумаги";'
+            ),
+            ITEMS,
+            "число полей",
+        ),
+        (
+            merged_notice_header(NOTICES) + NOTICES.splitlines()[1] + ";лишнее\n",
+            ITEMS,
+            "число полей",
+        ),
+        (
+            merged_notice_header(NOTICES).replace('"subject"', '"reqnum"'),
+            ITEMS,
+            "названия столбцов повторяются",
+        ),
     ],
 )
 def test_invalid_csv_rejects_entire_run_before_search(monkeypatch, notices, items, message):
@@ -88,7 +127,8 @@ def test_oversized_csv():
     assert error.value.status_code == 413
 
 
-def test_upload_endpoint_uses_raw_fields_and_returns_complete_result(monkeypatch):
+@pytest.mark.parametrize("merged_header", [False, True])
+def test_upload_endpoint_uses_raw_fields_and_returns_complete_result(monkeypatch, merged_header):
     requests = []
 
     def search(conn, request, *, automatic):
@@ -108,10 +148,11 @@ def test_upload_endpoint_uses_raw_fields_and_returns_complete_result(monkeypatch
     app.dependency_overrides[get_db] = lambda: None
     try:
         client = TestClient(app)
+        notices = merged_notice_header(NOTICES) if merged_header else NOTICES
         response = client.post(
             "/api/v1/batch/csv",
             files={
-                "notices": ("notice.csv", NOTICES.encode(), "text/csv"),
+                "notices": ("notice.csv", notices.encode("utf-8-sig"), "text/csv"),
                 "items": ("items.csv", ITEMS.encode(), "text/csv"),
             },
         )
@@ -121,6 +162,7 @@ def test_upload_endpoint_uses_raw_fields_and_returns_complete_result(monkeypatch
         assert result["total_items"] == 1
         assert result["lots"][0]["lot"]["lot_id"] == 6029457
         assert result["lots"][0]["lot"]["publish_date"] == "2026-02-20"
+        assert result["lots"][0]["lot"]["procedure_name"] == "Поставка бумаги"
         assert result["supplier_cards"] == {}
         assert requests[0].lot.items == ["Бумага А4"]
         assert (
