@@ -18,6 +18,7 @@ def test_warnings_name_the_problem_with_the_numbers():
     ]
     assert warnings({"revenue": 1e6}, 3e6) == ["НМЦК 3,0 млн ₽ больше годовой выручки (1,0 млн ₽)"]
     assert warnings({"tax_debt": 1_000.0}, None) == []  # a small late payment
+    assert warnings({"revenue": 100e6, "expenses": 105e6}, None) == []  # about break-even
 
 
 def test_reliable_means_active_no_debt_and_revenue_above_the_price():
@@ -33,3 +34,6 @@ def test_role_from_okved_follows_the_registry_rule():
     assert role_from_okved("46.69.8")[0] == "DISTRIBUTOR"
     assert role_from_okved("86.90")[0] == "SUPPLIER"
     assert role_from_okved(None) == ("UNKNOWN", None)
+    assert role_from_okved(None, 'СПБ ГБУЗ "ГОРОДСКАЯ ДЕЗИНФЕКЦИОННАЯ СТАНЦИЯ"')[0] == "SUPPLIER"
+    assert role_from_okved(None, 'ФБУЗ "ЦЕНТР ГИГИЕНЫ"')[0] == "SUPPLIER"
+    assert role_from_okved(None, 'ООО "ГБУ ТРЕЙД"')[0] == "UNKNOWN"

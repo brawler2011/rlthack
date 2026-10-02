@@ -193,7 +193,7 @@ class Engine:
             org = trust.get(inn) or {}
             role, role_reason = company.get("role"), company.get("role_reason")
             if role is None:  # outside the SME registry: OKVED from the statements, if known
-                role, role_reason = role_from_okved(org.get("okved"))
+                role, role_reason = role_from_okved(org.get("okved"), org.get("name"))
             items.append(
                 SupplierRecommendation(
                     rank=rank,

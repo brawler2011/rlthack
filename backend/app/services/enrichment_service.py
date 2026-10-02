@@ -39,7 +39,7 @@ class EnrichmentService:
         org = trust_rows(conn, [inn]).get(inn) if has_table(conn) else None
         if org and role is None:  # outside the SME registry: name and OKVED from FNS
             card["name"] = card["name"] or org["name"]
-            role, card["role_reason"] = role_from_okved(org["okved"])
+            role, card["role_reason"] = role_from_okved(org["okved"], card["name"])
             card["okved_main"] = card["okved_main"] or org["okved"]
         role = role or "UNKNOWN"
         return SupplierCard(
