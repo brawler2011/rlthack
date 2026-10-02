@@ -259,13 +259,15 @@ def expand(
     top: int | None = 100,
     licenses: Affinity | None = None,
     weights: np.ndarray | None = None,
+    explain: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Top registry companies for a lot: rows, scores relative to the best and a reason for each.
 
     exclude: boolean mask of companies to skip (already known suppliers);
     day: the lot date, companies that entered the registry later are skipped;
     licenses: the license fit, its holders score the share of wins per holder;
-    weights: per company, how much more often its profile wins (profile_weights_from_db).
+    weights: per company, how much more often its profile wins (profile_weights_from_db);
+    explain: False skips the reasons (an empty list), for evaluations over the whole pool.
     """
     alive = ~exclude & (registry.since_day <= day)
     score = np.zeros(len(registry.inns))
@@ -321,6 +323,9 @@ def expand(
     found = np.flatnonzero(score > 0)
     # Lexicographic: the score first, the prior only orders companies with equal scores.
     order = found[np.lexsort((-registry.prior[found], -score[found]))][:top]  # top=None: all
+    best = score[order[0]] if len(order) else 1.0
+    if not explain:
+        return order, score[order] / best, []
     texts = [
         "; ".join(reasons[i] for i in pair if i >= 0)
         for pair in zip(why[order].tolist(), why_license[order].tolist(), strict=True)
@@ -333,5 +338,4 @@ def expand(
                     f"; профиль «{registry.describe(row, day)}»: "
                     f"среди новых победителей в {times} раза чаще среднего"
                 )
-    best = score[order[0]] if len(order) else 1.0
     return order, score[order] / best, texts

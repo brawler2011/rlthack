@@ -76,7 +76,9 @@ def main():
         group_ranks.append(
             min((i + 1 for i, g in enumerate(groups) if g in winner_groups), default=None)
         )
-        order, _, _ = expand(registry, affinity, lot_codes, exclude, day, None, licenses, weights)
+        order, _, _ = expand(
+            registry, affinity, lot_codes, exclude, day, None, licenses, weights, explain=False
+        )
         pool_sizes.append(len(order))
         licensed.append(bool(license_fit.for_codes(lot_codes)))
         hits = np.flatnonzero(np.isin(order, rows))
