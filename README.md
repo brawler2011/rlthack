@@ -85,6 +85,8 @@ split (trained on April–June, checked on July–September) without looking at 
 
 ## Development
 
+Write code and code comments in English. Use Russian for all user-facing UI text.
+
 * Backend with autoreload: `task dev:backend`; frontend: `task dev:frontend`
 * Linters (Ruff + ESLint): `task lint`; formatting: `task format`, `task format:check`
 * Tests: `task test` (database tests need `TEST_DATABASE_URL`, see `backend/README.md`)
