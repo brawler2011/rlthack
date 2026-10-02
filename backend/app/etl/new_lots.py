@@ -64,9 +64,12 @@ def rows(path: Path, kind: str) -> Iterator[dict[str, str]]:
     raw = inspect_file(path)
     if raw is None or raw.kind != kind:
         raise ValueError(f"{path}: not a {kind} CSV (columns are detected as in 01_init_db)")
-    with path.open(encoding=raw.encoding, newline="") as f:
+    # utf-8-sig drops a byte order mark (files saved by Excel), else the first column name
+    # keeps it and its quotes: "lot_id" would not be found.
+    encoding = "utf-8-sig" if raw.encoding == "utf-8" else raw.encoding
+    with path.open(encoding=encoding, newline="") as f:
         reader = csv.reader(f, delimiter=raw.delimiter)
-        header = [c.strip().lstrip("﻿").strip().lower() for c in next(reader)]
+        header = [c.strip().lower() for c in next(reader)]
         for row in reader:
             yield dict(zip(header, row, strict=False))
 
