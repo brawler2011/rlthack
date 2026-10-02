@@ -159,6 +159,13 @@ tasks:
       - poetry run python scripts/01_init_db.py
       - poetry run python scripts/02_aggregate_profiles.py
       - poetry run python scripts/03_enrich_roles.py --download
+      - poetry run python scripts/09_organizations.py
+
+  organizations:
+    desc: Load names of suppliers outside the SME registry (resources/organizations.csv)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python scripts/09_organizations.py
 
   train:
     desc: Build embeddings and train CatBoost ranker

@@ -116,3 +116,19 @@ def test_supplier_card(api_db):
     history_only = client.get("/api/v1/enrichment/7811383967").json()
     assert history_only["role"] == "UNKNOWN" and history_only["n_bids"] == 2
     assert client.get("/api/v1/enrichment/0000000000").status_code == 404
+
+
+@requires_db
+def test_supplier_card_takes_the_name_from_organizations(api_db, db):
+    """Suppliers outside the SME registry get their name from 09_organizations."""
+    pipeline.run_sql_file(db, "organizations_schema.sql")
+    db.execute(
+        "INSERT INTO organizations VALUES ('7811383967', 'СПб ГБУ «ТЕСТ»', NULL, NULL, 'egrul')"
+    )
+    db.commit()
+    try:
+        card = client.get("/api/v1/enrichment/7811383967").json()
+        assert (card["name"], card["role"]) == ("СПб ГБУ «ТЕСТ»", "UNKNOWN")
+    finally:
+        db.execute("DROP TABLE organizations")
+        db.commit()

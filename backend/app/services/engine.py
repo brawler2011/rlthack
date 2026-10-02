@@ -46,6 +46,7 @@ SELECT inn, name, role, role_reason, okved_main, okved_main_name, region_code, m
        headcount
 FROM companies WHERE inn = ANY(%s)
 """
+ORGANIZATIONS_SQL = "SELECT inn, name FROM organizations WHERE inn = ANY(%s)"
 EVIDENCE_SQL = """
 SELECT b.supplier_inn, l.lot_id, l.publish_date, l.subject, l.start_price::float8 AS start_price,
        b.is_winner
@@ -75,6 +76,8 @@ class Snapshot:
 
 
 class Engine:
+    has_organizations = False  # set on load: the organizations table exists
+
     def __init__(self):
         started = time.perf_counter()
         self.emb = LotEmbeddings.load(settings.embeddings_dir)
@@ -83,6 +86,10 @@ class Engine:
             self.registry = load_registry(conn)
             self.affinity = affinity_from_db(conn)
             self.licenses = license_affinity_from_db(conn)
+            # Names of suppliers outside the SME registry, if 09_organizations was loaded.
+            self.has_organizations = bool(
+                conn.execute("SELECT to_regclass('organizations') IS NOT NULL").fetchone()[0]
+            )
         self.model = ranker.load(settings.catboost_model_path)
         if list(self.model.feature_names_) != list(FEATURES):
             raise RuntimeError("The ranker was trained on other features: rerun 05_train_ranker")
@@ -161,6 +168,7 @@ class Engine:
         ][:limit]
 
         shown = [inns[i] for i in keep]
+        names = self._organization_names(conn, [inn for inn in shown if inn not in companies])
         shap = self._shap(features[keep]) if keep else np.zeros((0, len(FEATURES)))
         evidence = self._evidence(conn, retrieval, cutoff, shown)
         customer = self._customer_history(conn, card.customer_inn, cutoff, shown)
@@ -182,7 +190,7 @@ class Engine:
                 SupplierRecommendation(
                     rank=rank,
                     inn=inn,
-                    name=company.get("name"),
+                    name=company.get("name") or names.get(inn),
                     role=role,
                     role_display=ROLE_DISPLAY[role],
                     role_reason=company.get("role_reason"),
@@ -210,6 +218,11 @@ class Engine:
             total_candidates=len(candidates),
             timing_ms=round((time.perf_counter() - started) * 1000, 1),
         )
+
+    def _organization_names(self, conn, inns: list[str]) -> dict[str, str]:
+        if not self.has_organizations or not inns:
+            return {}
+        return {r["inn"]: r["name"] for r in conn.execute(ORGANIZATIONS_SQL, (inns,)).fetchall()}
 
     @staticmethod
     def _passes(filters: SearchFilters, company: dict | None, stats: dict, col: int) -> bool:
