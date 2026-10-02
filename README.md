@@ -100,8 +100,9 @@ split (trained on April–June, checked on July–September) without looking at 
 - 4.8% of the lots are won by a company that never bid before. For them the SME registry of
   SPb / LO is the only source, and it holds the winner of 43% of these lots. The winner's OKVED
   group is among the 10 we expect for the lot in 42% of cases, and the winner is among the top
-  100 suggested new companies for 1.4% of these lots (top 50: 0.8%): the pool has ~350k
-  companies and the registry has almost nothing that tells a future winner apart.
+  100 suggested new companies for 1.5% of these lots (top 50: 0.9%, top 20: 0.6%): the pool
+  has ~350k companies and the registry has almost nothing that tells a future winner apart.
+  Narrow specialists go first: a company whose OKVED groups mostly fit the lot.
 - Roles (manufacturer / distributor / supplier) from the registry OKVED: 60% of the suppliers in the
   data; the rest are large companies outside the SME registry.
 
