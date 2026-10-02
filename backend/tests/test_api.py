@@ -78,6 +78,8 @@ def test_search_needs_exactly_one_lot(no_db):
 def api_db(db):
     """The test dataset plus one registry company; the API reads it through get_db."""
     pipeline.run_sql_file(db, "companies_schema.sql")
+    # A previous run may have left an older organizations schema in the test database.
+    pipeline.run_sql_file(db, "organizations_schema.sql")
     db.execute(
         "INSERT INTO companies VALUES ('7802587594', 'ООО «ВЕСЫ»', false, '78', 1, 12, "
         "'2016-08-10', '28.29', 'Производство прочих машин', '{46.69}', '{}', '{}', 'rmsp', "
