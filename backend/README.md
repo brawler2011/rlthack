@@ -28,6 +28,12 @@ the selected groups, so use the full setup command again before running the ML p
 
 ## Database
 
+`POST /api/v1/batch/csv` accepts multipart `notices` and `items` CSV files. Parsing and validation
+run on the backend; there is no database import or saved run history. The response contains
+procurement cards, automatically selected suppliers, explanations, evidence and company details.
+The existing `/suppliers/search`, `/lots` and `/batch/simulate` routes remain available.
+See the root README for CSV columns, limits and the automatic selection rule.
+
 The schema lives in `app/etl/sql/`. `scripts/01_init_db.py` recreates it and loads the CSVs,
 `scripts/02_aggregate_profiles.py` builds the supplier marts.
 

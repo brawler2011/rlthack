@@ -71,6 +71,110 @@
         "title": "BatchResponse",
         "type": "object"
       },
+      "Body_match_csv_batch": {
+        "properties": {
+          "items": {
+            "description": "Raw product items CSV",
+            "format": "binary",
+            "title": "Items",
+            "type": "string"
+          },
+          "notices": {
+            "description": "Raw notices CSV",
+            "format": "binary",
+            "title": "Notices",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notices",
+          "items"
+        ],
+        "title": "Body_match_csv_batch",
+        "type": "object"
+      },
+      "CsvBatchErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ValidationIssue"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "CsvBatchErrorResponse",
+        "type": "object"
+      },
+      "CsvBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResponse"
+            },
+            "title": "Lots",
+            "type": "array"
+          },
+          "selection_policy": {
+            "description": "Human-readable automatic selection rule",
+            "title": "Selection Policy",
+            "type": "string"
+          },
+          "supplier_cards": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SupplierCard"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Supplier Cards",
+            "type": "object"
+          },
+          "timing_ms": {
+            "title": "Timing Ms",
+            "type": "number"
+          },
+          "total_items": {
+            "title": "Total Items",
+            "type": "integer"
+          },
+          "total_lots": {
+            "title": "Total Lots",
+            "type": "integer"
+          },
+          "total_recommendations": {
+            "title": "Total Recommendations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lots",
+          "supplier_cards",
+          "total_lots",
+          "total_items",
+          "total_recommendations",
+          "timing_ms",
+          "selection_policy"
+        ],
+        "title": "CsvBatchResponse",
+        "type": "object"
+      },
       "EvidenceLot": {
         "additionalProperties": false,
         "description": "A past lot similar to the query that the supplier bid on.",
@@ -1223,6 +1327,68 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/batch/csv": {
+      "post": {
+        "description": "Validate two CSVs and return all recommendations and company details in one response.",
+        "operationId": "match_csv_batch",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_match_csv_batch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsvBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsvBatchErrorResponse"
+                }
+              }
+            },
+            "description": "CSV file too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsvBatchErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid CSV or missing upload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsvBatchErrorResponse"
+                }
+              }
+            },
+            "description": "Matching engine unavailable"
+          }
+        },
+        "summary": "Match Csv Batch",
+        "tags": [
+          "Batch"
+        ]
+      }
+    },
     "/api/v1/batch/simulate": {
       "post": {
         "description": "The background robot for one day: newly published notices, suppliers to invite for each\n(known ones with the reason, plus new companies from the SME registry).",

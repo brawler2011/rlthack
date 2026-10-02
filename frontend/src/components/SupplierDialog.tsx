@@ -2,16 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Building2, LoaderCircle, MapPin, ShieldCheck, X } from "lucide-react";
 import { getSupplierEnrichment } from "../services/api";
 import { errorMessage, money, number, percent, roleNames } from "../utils/format";
-import type { SupplierEnrichment, SupplierItem } from "../types";
+import type { SupplierEnrichment, SelectedSupplier } from "../types";
+import EvidenceList from "./EvidenceList";
 
 interface Props {
-  supplier: SupplierItem;
+  supplier: SelectedSupplier;
+  details?: SupplierEnrichment | null;
   onClose: () => void;
 }
 
 type EnrichmentState =
   | { status: "loading" }
   | { status: "error"; message: string }
+  | { status: "unavailable" }
   | { status: "success"; data: SupplierEnrichment };
 
 const factorNames: Record<string, string> = {
@@ -26,13 +29,35 @@ const factorNames: Record<string, string> = {
   avg_won_price: "Средняя стоимость выигранных закупок",
   semantic_similarity: "Соответствие предмету закупки",
   okpd2_match: "Опыт по коду ОКПД2",
+  similar_lots: "Опыт в похожих закупках",
+  okpd2: "Опыт по ОКПД2",
+  customer: "Опыт с заказчиком",
+  repeat: "Похожие закупки у заказчика",
+  agreement: "Совпадение способов подбора",
+  volume: "История участия",
+  recency: "Недавние победы",
+  activity: "Активность поставщика",
+  price: "Соответствие стоимости",
+  channel: "Опыт на площадке",
+  smp: "Опыт в закупках для СМП",
+  region: "Регион компании",
+  customers: "Опыт с разными заказчиками",
 };
 
-export default function SupplierDialog({ supplier, onClose }: Props) {
+export default function SupplierDialog({ supplier, details, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [enrichment, setEnrichment] = useState<EnrichmentState>({ status: "loading" });
+  const [enrichment, setEnrichment] = useState<EnrichmentState>(
+    details === undefined
+      ? { status: "loading" }
+      : details === null
+        ? { status: "unavailable" }
+        : { status: "success", data: details }
+  );
   const [attempt, setAttempt] = useState(0);
-  const factors = supplier.explanation?.factors ?? [];
+  const known = "explanation" in supplier;
+  const explanation = known ? supplier.explanation : null;
+  const factors = explanation?.factors ?? [];
+  const summary = explanation?.summary || ("reason" in supplier ? supplier.reason : null);
   const maxImpact = Math.max(...factors.map((factor) => Math.abs(factor.impact)), 0.001);
 
   useEffect(() => {
@@ -50,6 +75,7 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
   }, []);
 
   useEffect(() => {
+    if (details !== undefined) return;
     const controller = new AbortController();
     getSupplierEnrichment(supplier.inn, controller.signal)
       .then((data) => {
@@ -60,7 +86,7 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
           setEnrichment({ status: "error", message: errorMessage(error) });
       });
     return () => controller.abort();
-  }, [supplier.inn, attempt]);
+  }, [supplier.inn, attempt, details]);
 
   return (
     <dialog
@@ -104,40 +130,54 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
           <span className={`role-badge role-${supplier.role.toLowerCase()}`}>
             {supplier.role_display || roleNames[supplier.role]}
           </span>
-          {supplier.is_smp && <span className="small-badge">Субъект МСП</span>}
-          {supplier.is_spb_lo && (
+          {(!known || supplier.is_smp) && <span className="small-badge">Субъект МСП</span>}
+          {known && supplier.is_actual_winner && (
+            <span className="winner-badge">Реальный победитель</span>
+          )}
+          {!known && <span className="small-badge">Новая компания</span>}
+          {known && supplier.is_spb_lo && (
             <span className="location-badge">
               <MapPin size={12} />
               СПб / Ленобласть
             </span>
           )}
         </div>
-        <dl className="company-metrics">
-          <div>
-            <dt>Контрактов</dt>
-            <dd>{number(supplier.n_wins)}</dd>
-          </div>
-          <div>
-            <dt>Доля побед</dt>
-            <dd>{percent(supplier.win_rate)}</dd>
-          </div>
-          <div>
-            <dt>Балл подбора</dt>
-            <dd className="accent-text">{number(supplier.score, 3)}</dd>
-          </div>
-        </dl>
-        <div className="average-contract">
-          <span>Средняя стоимость контракта</span>
-          <strong>{money(supplier.avg_won_price)}</strong>
-        </div>
+        {known && (
+          <>
+            <dl className="company-metrics">
+              <div>
+                <dt>Контрактов</dt>
+                <dd>{number(supplier.n_wins)}</dd>
+              </div>
+              <div>
+                <dt>Доля побед</dt>
+                <dd>{percent(supplier.win_rate)}</dd>
+              </div>
+              <div>
+                <dt>Балл подбора</dt>
+                <dd className="accent-text">{number(supplier.score, 3)}</dd>
+              </div>
+            </dl>
+            <div className="average-contract">
+              <span>Средняя стоимость контракта</span>
+              <strong>{money(supplier.avg_won_price)}</strong>
+            </div>
+          </>
+        )}
+        {!known && (
+          <p className="new-company-intro">
+            В истории закупок пока нет участий. Рекомендация основана на сведениях реестра МСП и
+            профиле деятельности.
+          </p>
+        )}
 
         <section className="dialog-section" aria-labelledby="explanation-heading">
           <div className="dialog-section-heading">
             <h3 id="explanation-heading">Почему рекомендован</h3>
             <span className="explanation-dot" />
           </div>
-          {supplier.explanation?.summary ? (
-            <p className="xai-summary">{supplier.explanation.summary}</p>
+          {summary ? (
+            <p className="xai-summary">{summary}</p>
           ) : (
             <p className="data-unavailable">Сервис пока не предоставил объяснение рекомендации.</p>
           )}
@@ -192,6 +232,22 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
           )}
         </section>
 
+        {known && (
+          <section className="dialog-section" aria-label="Лоты-доказательства">
+            <div className="dialog-section-heading">
+              <h3>Лоты-доказательства</h3>
+            </div>
+            <p className="factor-footnote">
+              Похожие закупки, в которых компания участвовала. Победы отмечены отдельно.
+            </p>
+            {explanation && explanation.evidence.length > 0 ? (
+              <EvidenceList lots={explanation.evidence} />
+            ) : (
+              <p className="data-unavailable">Похожие закупки в истории не найдены.</p>
+            )}
+          </section>
+        )}
+
         <section
           className="dialog-section"
           aria-labelledby="enrichment-heading"
@@ -202,6 +258,9 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
             <ShieldCheck size={17} />
           </div>
           <div aria-live="polite">
+            {enrichment.status === "unavailable" && (
+              <p className="data-unavailable">Дополнительные сведения о компании отсутствуют.</p>
+            )}
             {enrichment.status === "loading" && (
               <p className="enrichment-loading">
                 <LoaderCircle size={16} className="spin" />

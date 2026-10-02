@@ -2,8 +2,32 @@ import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { toSearchLot } from "../src/utils/lot";
 
 const fetchSpy = spyOn(globalThis, "fetch");
-const { searchSuppliers, searchLots, getSupplierEnrichment, getLot } =
+const { searchSuppliers, searchLots, getSupplierEnrichment, getLot, matchCsvBatch } =
   await import("../src/services/api");
+
+test("CSV upload sends two unchanged raw files as multipart with a batch timeout", async () => {
+  const result = {
+    lots: [],
+    supplier_cards: {},
+    total_lots: 0,
+    total_items: 0,
+    total_recommendations: 0,
+    timing_ms: 0,
+    selection_policy: "Правило",
+  };
+  fetchSpy.mockResolvedValue(Response.json(result));
+  const notices = new File(["lot_id;subject\n1;Бумага"], "извещения.csv", { type: "text/csv" });
+  const items = new File(["lot_id;product_name\n1;Бумага А4"], "потоварка.csv", {
+    type: "text/csv",
+  });
+  expect(await matchCsvBatch(notices, items)).toEqual(result);
+  const [request] = fetchSpy.mock.calls[0];
+  expect(new URL(request.url).pathname).toBe("/api/v1/batch/csv");
+  expect(request.headers.get("Content-Type")).toContain("multipart/form-data; boundary=");
+  const form = await request.formData();
+  expect(await form.get("notices").text()).toBe(await notices.text());
+  expect(await form.get("items").text()).toBe(await items.text());
+});
 let timeoutSpy;
 let clearTimeoutSpy;
 

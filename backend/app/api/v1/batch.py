@@ -1,12 +1,35 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
 from app.core.database import get_db
 from app.schemas.batch import BatchResponse
+from app.schemas.csv_batch import CsvBatchErrorResponse, CsvBatchResponse
 from app.services.batch_service import batch_service
+from app.services.csv_batch_service import MAX_FILE_BYTES, csv_batch_service
 
 router = APIRouter(prefix="/batch", tags=["Batch"])
+
+
+@router.post(
+    "/csv",
+    response_model=CsvBatchResponse,
+    operation_id="match_csv_batch",
+    responses={
+        422: {"model": CsvBatchErrorResponse, "description": "Invalid CSV or missing upload"},
+        413: {"model": CsvBatchErrorResponse, "description": "CSV file too large"},
+        503: {"model": CsvBatchErrorResponse, "description": "Matching engine unavailable"},
+    },
+)
+def match_csv_batch(
+    notices: UploadFile = File(description="Raw notices CSV"),
+    items: UploadFile = File(description="Raw product items CSV"),
+    conn=Depends(get_db),
+):
+    """Validate two CSVs and return all recommendations and company details in one response."""
+    return csv_batch_service.run(
+        conn, notices.file.read(MAX_FILE_BYTES + 1), items.file.read(MAX_FILE_BYTES + 1)
+    )
 
 
 @router.post("/simulate", response_model=BatchResponse, operation_id="simulate_batch")

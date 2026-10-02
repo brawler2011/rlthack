@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
@@ -57,6 +57,12 @@ app.include_router(api_router)
 
 # Serve frontend static assets (if built)
 if settings.static_dir.exists():
+
+    @app.get("/single", include_in_schema=False)
+    @app.get("/csv", include_in_schema=False)
+    def frontend_page():
+        return FileResponse(settings.static_dir / "index.html")
+
     app.mount("/", StaticFiles(directory=str(settings.static_dir), html=True), name="static")
 
 if __name__ == "__main__":

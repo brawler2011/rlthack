@@ -1,5 +1,5 @@
 import { createApiClient } from "../contracts/client";
-import type { SearchSuppliersRequest } from "../types";
+import type { CsvBatchUpload, SearchSuppliersRequest } from "../types";
 
 const client = createApiClient();
 
@@ -14,11 +14,12 @@ function errorDetail(error: unknown): string | null {
 
 async function request<T>(
   send: (signal: AbortSignal) => Promise<ApiResult<T>>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  timeoutMs = 30_000
 ): Promise<T> {
   const controller = new AbortController();
   const cancel = () => controller.abort();
-  const timeout = globalThis.setTimeout(cancel, 30_000);
+  const timeout = globalThis.setTimeout(cancel, timeoutMs);
   signal?.addEventListener("abort", cancel, { once: true });
   if (signal?.aborted) controller.abort();
 
@@ -33,9 +34,12 @@ async function request<T>(
   } catch (error) {
     if (signal?.aborted) throw error;
     if (controller.signal.aborted) {
-      throw Object.assign(new Error("Сервис не ответил за 30 секунд. Попробуйте ещё раз."), {
-        cause: error,
-      });
+      throw Object.assign(
+        new Error(`Сервис не ответил за ${timeoutMs / 1000} секунд. Попробуйте ещё раз.`),
+        {
+          cause: error,
+        }
+      );
     }
     if (error instanceof TypeError) {
       throw Object.assign(
@@ -48,6 +52,23 @@ async function request<T>(
     globalThis.clearTimeout(timeout);
     signal?.removeEventListener("abort", cancel);
   }
+}
+
+export function matchCsvBatch(notices: File, items: File, signal?: AbortSignal) {
+  const form = new FormData();
+  form.append("notices", notices);
+  form.append("items", items);
+  return request(
+    (requestSignal) =>
+      client.POST("/api/v1/batch/csv", {
+        // OpenAPI describes binary fields as strings; the browser sends the original files.
+        body: form as unknown as CsvBatchUpload,
+        bodySerializer: () => form,
+        signal: requestSignal,
+      }),
+    signal,
+    300_000
+  );
 }
 
 export function searchSuppliers(body: SearchSuppliersRequest, signal?: AbortSignal) {

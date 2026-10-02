@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+  "/api/v1/batch/csv": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Match Csv Batch
+     * @description Validate two CSVs and return all recommendations and company details in one response.
+     */
+    post: operations["match_csv_batch"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/batch/simulate": {
     parameters: {
       query?: never;
@@ -161,6 +181,48 @@ export interface components {
       timing_ms: number;
       /** Total Invitations */
       total_invitations: number;
+    };
+    /** Body_match_csv_batch */
+    Body_match_csv_batch: {
+      /**
+       * Items
+       * Format: binary
+       * @description Raw product items CSV
+       */
+      items: string;
+      /**
+       * Notices
+       * Format: binary
+       * @description Raw notices CSV
+       */
+      notices: string;
+    };
+    /** CsvBatchErrorResponse */
+    CsvBatchErrorResponse: {
+      /** Detail */
+      detail: string | components["schemas"]["ValidationIssue"][];
+    };
+    /** CsvBatchResponse */
+    CsvBatchResponse: {
+      /** Lots */
+      lots: components["schemas"]["SearchResponse"][];
+      /**
+       * Selection Policy
+       * @description Human-readable automatic selection rule
+       */
+      selection_policy: string;
+      /** Supplier Cards */
+      supplier_cards: {
+        [key: string]: components["schemas"]["SupplierCard"] | null;
+      };
+      /** Timing Ms */
+      timing_ms: number;
+      /** Total Items */
+      total_items: number;
+      /** Total Lots */
+      total_lots: number;
+      /** Total Recommendations */
+      total_recommendations: number;
     };
     /**
      * EvidenceLot
@@ -542,6 +604,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  match_csv_batch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_match_csv_batch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CsvBatchResponse"];
+        };
+      };
+      /** @description CSV file too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CsvBatchErrorResponse"];
+        };
+      };
+      /** @description Invalid CSV or missing upload */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CsvBatchErrorResponse"];
+        };
+      };
+      /** @description Matching engine unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CsvBatchErrorResponse"];
+        };
+      };
+    };
+  };
   simulate_batch: {
     parameters: {
       query?: {
