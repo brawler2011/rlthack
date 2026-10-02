@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import NewCompanies from "./NewCompanies";
 import ReliabilityWarnings from "./ReliabilityWarnings";
+import ProfileFitDetails from "./ProfileFitDetails";
 import type { Filters } from "../utils/filters";
 
 export type SearchState =
@@ -121,6 +122,7 @@ export function SupplierRow({
             {summary}
           </p>
         )}
+        <ProfileFitDetails fit={supplier.profile_fit} compact />
         <ReliabilityWarnings warnings={supplier.warnings} />
       </div>
       <div className="supplier-score">

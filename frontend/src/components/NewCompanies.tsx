@@ -1,5 +1,7 @@
 import { Building2, ChevronRight } from "lucide-react";
 import type { NewSupplier } from "../types";
+import ReliabilityWarnings from "./ReliabilityWarnings";
+import ProfileFitDetails from "./ProfileFitDetails";
 
 export default function NewCompanies({
   suppliers,
@@ -28,6 +30,8 @@ export default function NewCompanies({
                 ИНН {supplier.inn} · {supplier.role_display}
               </span>
               <span className="new-company-reason">{supplier.reason}</span>
+              <ProfileFitDetails fit={supplier.profile_fit} compact />
+              <ReliabilityWarnings warnings={supplier.warnings} />
             </span>
             <ChevronRight size={18} />
           </button>

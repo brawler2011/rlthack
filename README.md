@@ -59,8 +59,8 @@ resolving their IDs in the database. Uploads and run history are not persisted.
 The endpoint returns all procurement results, explanations, evidence and company cards in one
 JSON response. Company cards are shared by INN within the response. Expanding a CSV result
 does not make additional API requests. Recommendation counts are automatic: existing suppliers
-must reach 0.66 on the ranker's normalized relative score; registry companies must reach 66%
-of the strongest positive registry score. Internal response caps are 100 existing and 50 registry
+and registry companies must reach 0.66 on their source's relative score after FNS risk discounts.
+Internal response caps are 100 existing and 50 registry
 companies per procurement. These scores are not calibrated probabilities. The single-lot flow
 retains its existing limits and filters. Its historical procurements can show real-winner badges;
 CSV uploads do not look up historical winners.
@@ -74,6 +74,50 @@ CSV uploads do not look up historical winners.
 | `05_train_ranker` | ~11 min | CatBoost ranker |
 | `08_predict` | ~0.2–0.5 s per lot | suppliers for lots from a notices CSV and an items CSV, written to a CSV (`task predict -- --help`) |
 | `09_organizations` | seconds | names of suppliers outside the SME registry (large companies, state institutions) from EGRUL, `task organizations`; `--build` looks them up again |
+
+`organizations.csv` also holds financial reports for SME registry legal entities, including those
+without procurement history. Refresh all five bulk FNS datasets (income/expenses, taxes paid,
+tax debt, unpaid tax-offence fines and headcount) with
+`task organizations -- --download-fns --bulk-only`. This keeps existing
+names and registration dates and matches reports to the union of procurement suppliers and the
+loaded SME registry by INN. With archives already downloaded, use
+`task organizations -- --build --fns-dir /path/to/fns --bulk-only`.
+`--registry-dump /path/to/rmsp.zip --no-load` builds the resource from the procurement CSVs and the
+SME dump without PostgreSQL. `--registry-details` additionally queries EGRUL and the statements
+registry for every SME legal entity; this makes many individual requests. These corporate
+financial datasets do not cover individual entrepreneurs; unavailable values stay null.
+To refresh every company already in the bundled resource without a loaded procurement database,
+use `task organizations -- --download-fns --bulk-only --resource-only --no-load`.
+Every report includes its `ДатаСост` snapshot date; `refreshed_at` records the import date.
+Missing companies in an archive stay unknown rather than being assigned zero debt. Duplicate
+report dates use the latest record. Resource writes are atomic and keep existing company metadata.
+The company dialog shows snapshot dates and links to official FNS datasets.
+
+Each recommendation includes `profile_fit`: independent evidence per requested OKPD2 category,
+covered and unverified codes, and a label reflecting the strongest evidence found. Ten curated
+category rules distinguish production, wholesale and services; these service rules are not an
+official universal classifier crosswalk. They also create registry candidates when procurement
+history is sparse. Market statistics include sample size and share of winners; broad class
+fallbacks do not assert coverage of particular items. Declared products come from the SME registry.
+Company-specific victories are checked by OKPD2 group before the historical cutoff, independently
+of semantic retrieval. They indicate wins, not completed contracts: the input data has no
+execution status. Unknown fit means insufficient evidence. Multi-category lots keep unverified
+categories visible even when another category matches. Product specifications, availability and
+mandatory permits still need verification before inviting a supplier.
+
+Online recommendations use `score = base_score * reliability_factor`, sorting and applying limits
+after the adjustment. The source scores remain separate relative scales, not probabilities.
+The explicit policy multipliers are 0.75 for tax debt from 50,000 RUB, 0.85 for expenses more than
+110% of income, 0.8 when the lot is at least half of yearly income, or 0.5 when it reaches yearly
+income (including nonpositive income). Inactive, liquidating or bankrupt companies get 0.1;
+reorganization gets 0.9. Independent risks multiply. Missing data and smaller debts are neutral.
+Unpaid tax-offence fines are displayed separately and use the same 50,000 RUB risk threshold as
+debt; overlapping debt and fines apply the tax multiplier once.
+Scores are not normalized again: even the best match can fall below the automatic threshold.
+The API returns base scores, multipliers and warnings for both historical suppliers and new
+registry companies; company dialogs show the reduction. `only_reliable` also filters new companies.
+Current reports apply to online invitation decisions, including historical lots viewed today.
+The offline metrics below evaluate the historical matching model without these later reports.
 
 `docker compose up --build` builds the all-in-one image (API + UI on :8000) and mounts `data/` and
 `backend/models/`, so run `task pipeline` first. The image pulls PyTorch and is large.

@@ -13,10 +13,12 @@ the same way and adds to the holders' score. Size, region and age only break tie
 import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 import numpy as np
+
+from app.ml.profile_rules import RULES, within
 
 EXTRA_OKVED_WEIGHT = 0.5
 PRODUCT_BONUS = 1.0
@@ -63,6 +65,7 @@ FROM companies ORDER BY inn
 @dataclass
 class Affinity:
     shares: dict[str, dict[str, float]]  # OKPD2 group (XX.XX) or class (XX) -> label -> share
+    totals: dict[str, int] = field(default_factory=dict)
 
     def for_codes(self, okpd2_codes: list[str]) -> dict[str, float]:
         """Share of wins per label (OKVED group, license) for a lot: by OKPD2 group, else class."""
@@ -97,7 +100,8 @@ def _shares(wins: Iterable[tuple[list[str], Iterable[str]]]) -> Affinity:
             key: {label: n / totals[key] for label, n in counts[key].items()}
             for key in totals
             if totals[key] >= MIN_WINS
-        }
+        },
+        totals={key: totals[key] for key in totals if totals[key] >= MIN_WINS},
     )
 
 
@@ -154,12 +158,14 @@ class Registry:
     by_license: dict[str, np.ndarray]
     local: np.ndarray  # registered in LOCAL_REGIONS
     groups: np.ndarray  # number of OKVED groups, main and additional
+    activities: dict[str, np.ndarray]  # full activity codes for curated category rules
 
 
 def load_registry(conn) -> Registry:
     rows = conn.execute(REGISTRY_SQL).fetchall()
     by_main, by_extra, by_product = defaultdict(list), defaultdict(list), defaultdict(list)
     by_license = defaultdict(list)
+    activities = defaultdict(list)
     for i, (_, main, extra, products, *_, licenses) in enumerate(rows):
         if main:
             by_main[main[:5]].append(i)
@@ -169,6 +175,8 @@ def load_registry(conn) -> Registry:
             by_product[code].append(i)
         for license_ in licenses:
             by_license[license_].append(i)
+        for code in set(extra) | ({main} if main else set()):
+            activities[code].append(i)
 
     category = np.array([r[5] or 0 for r in rows], dtype=float)
     headcount = np.array([r[6] or 0 for r in rows], dtype=float)
@@ -191,6 +199,7 @@ def load_registry(conn) -> Registry:
         by_license=arrays(by_license),
         local=np.array([r[4] in LOCAL_REGIONS for r in rows]),
         groups=np.array([len({e[:5] for e in r[2]} | {(r[1] or "")[:5]} - {""}) for r in rows]),
+        activities=arrays(activities),
     )
 
 
@@ -203,6 +212,7 @@ def expand(
     top: int | None = 100,
     licenses: Affinity | None = None,
     explain: bool = True,
+    explain_rows: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Top registry companies for a lot: rows, scores relative to the best and a reason for each.
 
@@ -210,10 +220,12 @@ def expand(
     day: the lot date, companies that entered the registry later are skipped;
     licenses: the license fit, its holders score the share of wins per holder;
     explain: False skips the reasons (an empty list), for evaluations over the whole pool.
+    explain_rows: explain these previously selected rows without changing the scoring pool.
     """
     alive = registry.local & ~exclude & (registry.since_day <= day)
     score = np.zeros(len(registry.inns))
     fitting = np.zeros(len(registry.inns))
+    reference_fit = np.zeros(len(registry.inns), dtype=bool)
     reasons: list[str] = []  # texts; why[row] points into it, built only for the shown companies
     why = np.full(len(registry.inns), -1)
 
@@ -239,6 +251,19 @@ def expand(
             value = per_company(EXTRA_OKVED_WEIGHT * share, rows)
             offer(rows, value, f"дополнительный ОКВЭД {group}: {wins}")
             fitting[rows] += 1
+    # Small fallback for reviewed categories with sparse procurement history.
+    # It creates candidates; it does not claim that they have supplied the goods.
+    for prefix, allowed, category in RULES:
+        if not any(within(code, prefix) for code in okpd2_codes):
+            continue
+        for activity, rows in registry.activities.items():
+            if any(within(activity, target) for target in allowed):
+                reference_fit[rows] = True
+                offer(
+                    rows,
+                    per_company(0.1, rows),
+                    f"ОКВЭД {activity}: категория «{category}» по справочнику сервиса",
+                )
     # One bonus per company; the reason names the most specific matching code.
     declared = np.zeros(len(registry.inns), dtype=bool)
     codes = {c[:8] for c in okpd2_codes} | {c[:5] for c in okpd2_codes}
@@ -273,15 +298,19 @@ def expand(
     relative = score[order] / score[order[0]] if len(order) else score[order]
     if not explain:
         return order, relative, []
+    if explain_rows is not None:
+        best = score[order[0]] if len(order) else 1.0
+        order = explain_rows
+        relative = score[order] / best
     texts = [
         "; ".join(reasons[i] for i in pair if i >= 0)
         for pair in zip(why[order].tolist(), why_license[order].tolist(), strict=True)
     ]
     for k, row in enumerate(order.tolist()):
         fit, total = int(fitting[row]), int(registry.groups[row])
-        if not fit:
+        if not fit and not reference_fit[row]:
             # Product and license evidence can justify a recommendation without OKVED fit.
             texts[k] += "; соответствие ОКВЭД профилю лота не подтверждено"
-        elif total > 1:  # with one matching OKVED group it says nothing new
+        elif fit and total > 1:  # with one matching OKVED group it says nothing new
             texts[k] += f"; {fit} из {total} групп ОКВЭД компании — по профилю лота"
     return order, relative, texts

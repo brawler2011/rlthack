@@ -61,6 +61,18 @@ class EnrichmentService:
             registered=org["registered"],
             status=org["status"],
             warnings=warnings(org, None),
+            **{
+                k: org.get(k)
+                for k in (
+                    "tax_fines",
+                    "revenue_as_of",
+                    "taxes_paid_as_of",
+                    "tax_debt_as_of",
+                    "headcount_as_of",
+                    "tax_fines_as_of",
+                    "refreshed_at",
+                )
+            },
         )
 
 

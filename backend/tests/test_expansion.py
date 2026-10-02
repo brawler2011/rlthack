@@ -80,10 +80,11 @@ def test_expand_excludes_weak_main_and_additional_okved_matches(explain):
 
 @pytest.mark.parametrize("share,expected", [(0.049, []), (0.05, ["B", "C"])])
 def test_expand_uses_the_profile_threshold_for_eligibility_and_explanation(share, expected):
-    registry = load_registry(FakeConn(PROFILE_ROWS))
+    # Isolate learned eligibility: 46.46 can also qualify through the curated goods rule.
+    registry = load_registry(FakeConn(PROFILE_ROWS[1:]))
     affinity = Affinity({"21.20": {"46.90": share}})
 
-    rows, _, reasons = expand(registry, affinity, ["21.20.10"], np.zeros(3, dtype=bool), day=200)
+    rows, _, reasons = expand(registry, affinity, ["21.20.10"], np.zeros(2, dtype=bool), day=200)
 
     assert registry.inns[rows].tolist() == expected
     assert all("1 из 2 групп ОКВЭД компании — по профилю лота" in reason for reason in reasons)

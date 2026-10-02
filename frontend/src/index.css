@@ -2192,3 +2192,34 @@ textarea::placeholder {
     scroll-behavior: auto !important;
   }
 }
+/* Evidence stays readable in both single-lot and CSV supplier dialogs. */
+.profile-evidence-list {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.profile-evidence-list li {
+  margin-bottom: 14px;
+}
+
+.profile-evidence-list p {
+  margin: 5px 0;
+}
+
+.profile-evidence-list small,
+.fns-report-date,
+.fns-source-links {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.fns-report-date {
+  display: block;
+  margin-top: 4px;
+}
+
+.fns-source-links a,
+.profile-evidence-list a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
