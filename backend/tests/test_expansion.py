@@ -1,6 +1,8 @@
 import numpy as np
+import pytest
 
 from app.ml.expansion import (
+    Affinity,
     expand,
     learn_affinity,
     learn_license_affinity,
@@ -47,6 +49,92 @@ LICENSE_WINS = (
     + [(["62.01.12"], [])] * 5
 )
 
+# A typical group, a rare main group, and the same rare group as an additional OKVED.
+PROFILE_ROWS = [
+    ("A", "46.46", ["62.01"], [], "78", 1, 5, 100, []),
+    ("B", "46.90", ["62.01"], [], "78", 1, 5, 100, []),
+    ("C", "62.01", ["46.90"], [], "78", 1, 5, 100, []),
+]
+
+
+@pytest.mark.parametrize("explain", [True, False])
+def test_expand_excludes_weak_main_and_additional_okved_matches(explain):
+    registry = load_registry(FakeConn(PROFILE_ROWS))
+    affinity = learn_affinity([(["21.20.10"], "46.46")] * 199 + [(["21.20.10"], "46.90")])
+
+    rows, scores, reasons = expand(
+        registry, affinity, ["21.20.10"], np.zeros(3, dtype=bool), day=200, explain=explain
+    )
+
+    assert registry.inns[rows].tolist() == ["A"]
+    assert scores.tolist() == [1.0]
+    assert reasons == (
+        [
+            "основной ОКВЭД 46.46: такие компании выигрывают 100% похожих лотов; "
+            "1 из 2 групп ОКВЭД компании — по профилю лота"
+        ]
+        if explain
+        else []
+    )
+
+
+@pytest.mark.parametrize("share,expected", [(0.049, []), (0.05, ["B", "C"])])
+def test_expand_uses_the_profile_threshold_for_eligibility_and_explanation(share, expected):
+    registry = load_registry(FakeConn(PROFILE_ROWS))
+    affinity = Affinity({"21.20": {"46.90": share}})
+
+    rows, _, reasons = expand(registry, affinity, ["21.20.10"], np.zeros(3, dtype=bool), day=200)
+
+    assert registry.inns[rows].tolist() == expected
+    assert all("1 из 2 групп ОКВЭД компании — по профилю лота" in reason for reason in reasons)
+
+
+def test_small_rare_group_cannot_displace_supported_companies():
+    # Without the eligibility threshold, the rare group's 4% goes to one company,
+    # giving it a higher score than each of the 50 companies splitting the other 96%.
+    registry = load_registry(
+        FakeConn([(f"A{i}", *PROFILE_ROWS[0][1:]) for i in range(50)] + [PROFILE_ROWS[1]])
+    )
+    affinity = learn_affinity([(["21.20.10"], "46.46")] * 96 + [(["21.20.10"], "46.90")] * 4)
+
+    rows, _, reasons = expand(
+        registry, affinity, ["21.20.10"], np.zeros(51, dtype=bool), day=200, top=3
+    )
+
+    assert len(rows) == 3
+    assert registry.main_group[rows].tolist() == ["46.46"] * 3
+    assert all("1 из 2 групп ОКВЭД компании — по профилю лота" in reason for reason in reasons)
+
+
+@pytest.mark.parametrize("extra", [[], ["47.11"]])
+def test_expand_explains_product_and_license_matches_without_fitting_okved(extra):
+    registry = load_registry(
+        FakeConn(
+            [
+                ("A", "62.01", extra, ["21.20.10"], "78", 1, 5, 100, []),
+                ("B", "62.01", extra, [], "78", 1, 5, 100, [PHARMACY]),
+                ("C", "62.01", extra, [], "78", 1, 5, 100, []),
+            ]
+        )
+    )
+
+    rows, scores, reasons = expand(
+        registry,
+        Affinity({}),
+        ["21.20.10"],
+        np.zeros(3, dtype=bool),
+        day=200,
+        licenses=learn_license_affinity(LICENSE_WINS),
+    )
+
+    assert registry.inns[rows].tolist() == ["A", "B"]
+    assert scores.tolist() == [1.0, 0.25]
+    assert reasons == [
+        "заявляет выпуск продукции 21.20.10; соответствие ОКВЭД профилю лота не подтверждено",
+        "лицензия «фармацевтическая деятельность»: её владельцы выигрывают 25% похожих лотов; "
+        "соответствие ОКВЭД профилю лота не подтверждено",
+    ]
+
 
 def test_learn_affinity_shares_by_group_with_class_backoff():
     affinity = learn_affinity(WINS + [(["21.10.1"], None)])
@@ -70,7 +158,9 @@ def test_expand_orders_by_learned_fit_and_skips_known_and_later():
     assert registry.inns[rows].tolist() == ["A", "C", "B", "D", "E"]
     expected = np.array([0.75, 0.375, 0.375, 0.375 * 0.875, 0.25]) / 0.75  # relative to A
     assert np.allclose(scores, expected)
-    assert reasons[0] == "заявляет выпуск продукции 21.20.10"
+    assert reasons[0] == (
+        "заявляет выпуск продукции 21.20.10; соответствие ОКВЭД профилю лота не подтверждено"
+    )
     assert reasons[1] == "основной ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов"
     assert reasons[3] == (
         "дополнительный ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов; "
