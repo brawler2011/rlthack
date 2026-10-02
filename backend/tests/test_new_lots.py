@@ -50,3 +50,14 @@ def test_read_lots_cleans_values_like_the_loader(tmp_path):
 def test_read_winners(tmp_path):
     (tmp_path / "b.csv").write_text(BIDS, encoding="utf-8")
     assert read_winners(tmp_path / "b.csv") == {10: {"7700000001"}}
+
+
+def test_read_lots_with_a_byte_order_mark(tmp_path):
+    """Excel saves CSVs with a BOM before the first, quoted column name."""
+    (tmp_path / "n.csv").write_text("\ufeff" + NOTICES, encoding="utf-8")
+    (tmp_path / "i.csv").write_text("\ufeff" + ITEMS, encoding="utf-8")
+
+    paper, _ = read_lots(tmp_path / "n.csv", tmp_path / "i.csv")
+
+    assert paper.publish_date == date(2025, 11, 17)
+    assert paper.okpd2_codes == ["17.12.14.129"]
