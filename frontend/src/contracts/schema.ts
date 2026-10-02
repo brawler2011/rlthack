@@ -218,7 +218,7 @@ export interface components {
       revenue: number | null;
       /**
        * Status
-       * @description ACTIVE, LIQUIDATED, ... from the statements registry
+       * @description ACTIVE, INACTIVE, LIQUIDATION_STAGE, ... from the statements registry
        */
       status: string | null;
       /**

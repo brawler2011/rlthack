@@ -9,9 +9,9 @@ def test_no_warnings_for_a_healthy_company_or_without_data():
 
 
 def test_warnings_name_the_problem_with_the_numbers():
-    org = {"status": "LIQUIDATED", "revenue": 2e6, "expenses": 3e6, "tax_debt": 120_000.0}
+    org = {"status": "INACTIVE", "revenue": 2e6, "expenses": 3e6, "tax_debt": 120_000.0}
     assert warnings(org, 1.5e6) == [
-        "Компания ликвидирована",
+        "Компания прекратила деятельность",
         "НМЦК — 75% годовой выручки (2,0 млн ₽)",
         "Убыток за последний год: расходы 3,0 млн ₽ при доходах 2,0 млн ₽",
         "Налоговая задолженность 120 тыс. ₽",
@@ -22,7 +22,8 @@ def test_warnings_name_the_problem_with_the_numbers():
 
 def test_reliable_means_active_no_debt_and_revenue_above_the_price():
     assert is_reliable(HEALTHY, 1e6)
-    assert not is_reliable({**HEALTHY, "status": "LIQUIDATED"}, 1e6)
+    assert not is_reliable({**HEALTHY, "status": "INACTIVE"}, 1e6)
+    assert is_reliable({**HEALTHY, "status": "REORGANIZATION_STAGE"}, 1e6)  # only a warning
     assert not is_reliable({**HEALTHY, "tax_debt": 60_000.0}, 1e6)
     assert not is_reliable(HEALTHY, 60e6)
 

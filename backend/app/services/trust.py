@@ -17,11 +17,14 @@ FROM organizations WHERE inn = ANY(%s)
 HAS_TABLE_SQL = "SELECT to_regclass('organizations') IS NOT NULL AS ok"
 TAX_DEBT_MIN = 50_000  # smaller arrears are usually a late payment
 PRICE_SHARE_WARN = 0.5  # the lot's price is at least half of the yearly revenue
+# Status codes of the accounting statements registry (bo.nalog.gov.ru)
 STATUS_TEXT = {
-    "LIQUIDATED": "Компания ликвидирована",
-    "LIQUIDATING": "Компания в процессе ликвидации",
-    "BANKRUPT": "Процедура банкротства",
+    "INACTIVE": "Компания прекратила деятельность",
+    "LIQUIDATION_STAGE": "Компания в процессе ликвидации",
+    "BANKRUPTCY_STAGE": "Процедура банкротства",
+    "REORGANIZATION_STAGE": "Компания в процессе реорганизации",
 }
+UNRELIABLE_STATUS = {"INACTIVE", "LIQUIDATION_STAGE", "BANKRUPTCY_STAGE"}
 
 
 def has_table(conn) -> bool:
@@ -39,8 +42,7 @@ def warnings(org: dict | None, price: float | None) -> list[str]:
     if not org:
         return []
     found = []
-    status = (org.get("status") or "").upper()
-    if text := next((t for code, t in STATUS_TEXT.items() if code in status), None):
+    if text := STATUS_TEXT.get(org.get("status") or ""):
         found.append(text)
     revenue, expenses = org.get("revenue"), org.get("expenses")
     if revenue is not None and price:
@@ -63,8 +65,7 @@ def is_reliable(org: dict | None, price: float | None) -> bool:
     """No liquidation, no tax debt and a yearly revenue above the lot's price."""
     if not org:
         return True  # no data is not a red flag
-    status = (org.get("status") or "").upper()
-    if any(code in status for code in STATUS_TEXT):
+    if org.get("status") in UNRELIABLE_STATUS:
         return False
     if (org.get("tax_debt") or 0) >= TAX_DEBT_MIN:
         return False

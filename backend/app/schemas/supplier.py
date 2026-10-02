@@ -104,7 +104,9 @@ class CompanyTrust(ContractModel):
     tax_debt: float | None = Field(description="Tax arrears, penalties and fines, RUB")
     headcount: int | None
     registered: date | None
-    status: str | None = Field(description="ACTIVE, LIQUIDATED, ... from the statements registry")
+    status: str | None = Field(
+        description="ACTIVE, INACTIVE, LIQUIDATION_STAGE, ... from the statements registry"
+    )
     warnings: list[str]
 
 
