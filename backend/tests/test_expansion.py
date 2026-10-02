@@ -63,14 +63,19 @@ def test_expand_orders_by_learned_fit_and_skips_known_and_later():
         registry, affinity, ["21.20.10.190"], np.isin(registry.inns, ["F"]), day=200
     )
 
-    # A declares the product. B and C split 75% of the wins of 46.46 (F is known, G is later,
-    # I is from another region);
-    # D alone has it as an additional OKVED: half of 75%. The prior orders the three.
-    assert registry.inns[rows].tolist() == ["A", "C", "D", "B", "E"]
-    assert list(scores) == [1.0, 0.375, 0.375, 0.375, 0.25]  # relative to A's product bonus
+    # A declares the product (1.0), but its only OKVED group does not fit the lot: x0.75.
+    # B and C split 75% of the wins of 46.46 (F is known, G is later, I is from another
+    # region): 0.375 each, all their OKVED fits. D alone has 46.46 as an additional OKVED:
+    # 0.375, but only 1 of its 2 groups fits: x0.875. E alone in 46.90: 0.25.
+    assert registry.inns[rows].tolist() == ["A", "C", "B", "D", "E"]
+    expected = np.array([0.75, 0.375, 0.375, 0.375 * 0.875, 0.25]) / 0.75  # relative to A
+    assert np.allclose(scores, expected)
     assert reasons[0] == "заявляет выпуск продукции 21.20.10"
     assert reasons[1] == "основной ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов"
-    assert reasons[2].startswith("дополнительный ОКВЭД 46.46")
+    assert reasons[3] == (
+        "дополнительный ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов; "
+        "1 из 2 групп ОКВЭД компании — по профилю лота"
+    )
 
 
 def test_license_fit_keeps_licenses_specific_to_the_lot():
@@ -93,7 +98,8 @@ def test_license_lifts_its_holders_within_a_group():
     )
 
     assert registry.inns[rows].tolist() == ["A", "B", "C", "D", "E"]
-    assert scores[1] == 0.75 / 2 + 0.25  # its group's share per company plus the license's
+    # its group's share per company plus the license's, relative to A (0.75, see above)
+    assert np.isclose(scores[1], (0.75 / 2 + 0.25) / 0.75)
     assert reasons[1] == (
         "основной ОКВЭД 46.46: такие компании выигрывают 75% похожих лотов; "
         "лицензия «фармацевтическая деятельность»: её владельцы выигрывают 25% похожих лотов"
