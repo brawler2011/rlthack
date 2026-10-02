@@ -4,6 +4,8 @@ import { getSupplierEnrichment } from "../services/api";
 import { errorMessage, money, number, percent, roleNames } from "../utils/format";
 import type { SupplierEnrichment, SelectedSupplier } from "../types";
 import EvidenceList from "./EvidenceList";
+import ReliabilityWarnings from "./ReliabilityWarnings";
+import CompanyTrustDetails from "./CompanyTrustDetails";
 
 interface Props {
   supplier: SelectedSupplier;
@@ -59,6 +61,13 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
   const factors = explanation?.factors ?? [];
   const summary = explanation?.summary || ("reason" in supplier ? supplier.reason : null);
   const maxImpact = Math.max(...factors.map((factor) => Math.abs(factor.impact)), 0.001);
+  const trust = enrichment.status === "success" ? enrichment.data.trust : null;
+  const warnings = [...new Set([...(known ? supplier.warnings : []), ...(trust?.warnings ?? [])])];
+
+  function retryEnrichment() {
+    setEnrichment({ status: "loading" });
+    setAttempt((value) => value + 1);
+  }
 
   useEffect(() => {
     const element = dialog.current;
@@ -164,12 +173,35 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
             </div>
           </>
         )}
-        {!known && (
-          <p className="new-company-intro">
-            В истории закупок пока нет участий. Рекомендация основана на сведениях реестра МСП и
-            профиле деятельности.
-          </p>
-        )}
+
+        <section className="dialog-section" aria-labelledby="trust-heading">
+          <div className="dialog-section-heading">
+            <h3 id="trust-heading">Надёжность · Данные ФНС</h3>
+            <ShieldCheck size={17} aria-hidden="true" />
+          </div>
+          <ReliabilityWarnings warnings={warnings} />
+          <div aria-live="polite" aria-busy={enrichment.status === "loading"}>
+            {enrichment.status === "loading" && (
+              <p className="enrichment-loading">
+                <LoaderCircle size={16} className="spin" aria-hidden="true" />
+                Загружаем данные ФНС…
+              </p>
+            )}
+            {enrichment.status === "error" && (
+              <div className="enrichment-error">
+                <p>Данные ФНС не загружены. {enrichment.message}</p>
+                <button className="text-button" type="button" onClick={retryEnrichment}>
+                  Повторить запрос данных ФНС
+                </button>
+              </div>
+            )}
+            {(enrichment.status === "unavailable" ||
+              (enrichment.status === "success" && trust === null)) && (
+              <p className="data-unavailable">Данные ФНС отсутствуют.</p>
+            )}
+            {trust && <CompanyTrustDetails trust={trust} />}
+          </div>
+        </section>
 
         <section className="dialog-section" aria-labelledby="explanation-heading">
           <div className="dialog-section-heading">
@@ -225,9 +257,6 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
                   {factor.text && <p>{factor.text}</p>}
                 </div>
               ))}
-              <p className="factor-footnote">
-                Вклад факторов в балл подбора, а не вероятность победы.
-              </p>
             </div>
           )}
         </section>
@@ -237,9 +266,6 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
             <div className="dialog-section-heading">
               <h3>Лоты-доказательства</h3>
             </div>
-            <p className="factor-footnote">
-              Похожие закупки, в которых компания участвовала. Победы отмечены отдельно.
-            </p>
             {explanation && explanation.evidence.length > 0 ? (
               <EvidenceList lots={explanation.evidence} />
             ) : (
@@ -270,14 +296,7 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
             {enrichment.status === "error" && (
               <div className="enrichment-error">
                 <p role="alert">{enrichment.message}</p>
-                <button
-                  className="text-button"
-                  type="button"
-                  onClick={() => {
-                    setEnrichment({ status: "loading" });
-                    setAttempt((value) => value + 1);
-                  }}
-                >
+                <button className="text-button" type="button" onClick={retryEnrichment}>
                   Повторить запрос
                 </button>
               </div>

@@ -42,7 +42,7 @@ function SingleLotPage() {
             only_spb_lo: filters.onlySpb,
             only_smp: filters.onlySmp,
             min_win_rate: filters.minWinRate / 100,
-            only_reliable: false,
+            only_reliable: filters.onlyReliable,
           },
           limit: 20,
           new_limit: 10,
