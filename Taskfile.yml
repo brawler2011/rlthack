@@ -20,7 +20,7 @@ tasks:
     desc: Install backend dependencies via Poetry
     dir: '{{.BACKEND_DIR}}'
     cmds:
-      - poetry install
+      - poetry install --with ml
 
   setup:frontend:
     desc: Install frontend dependencies via Bun

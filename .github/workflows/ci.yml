@@ -33,31 +33,44 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgresql://rlthack:rlthack@localhost:5432/rlthack_test
+      POETRY_VERSION: '2.4.1'
+      POETRY_VIRTUALENVS_IN_PROJECT: 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
+        id: python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Poetry
-        run: pipx install poetry
+        run: pipx install "poetry==$POETRY_VERSION"
 
-      - name: Configure Poetry virtualenv in-project
-        run: poetry config virtualenvs.in-project true
+      - name: Check dependency lock
+        run: poetry check --lock
 
       - name: Cache Poetry virtualenv
         uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: backend-venv-${{ runner.os }}-py3.11-${{ hashFiles('backend/poetry.lock', 'backend/pyproject.toml') }}
-          restore-keys: |
-            backend-venv-${{ runner.os }}-py3.11-
+          key: backend-ci-venv-v1-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-poetry${{ env.POETRY_VERSION }}-${{ hashFiles('backend/poetry.lock', 'backend/pyproject.toml') }}
 
       - name: Install dependencies
-        run: poetry install --no-interaction
+        run: poetry sync --only main,dev --no-root --no-interaction
+
+      - name: Verify lightweight environment and unchanged lock
+        run: |
+          poetry run python - <<'PY'
+          from importlib.metadata import distributions
+
+          heavy = {"torch", "catboost", "sentence-transformers"}
+          installed = {dist.metadata["Name"].lower().replace("_", "-") for dist in distributions()}
+          unexpected = {name for name in installed if name in heavy or name.startswith(("nvidia-", "cuda-"))}
+          assert not unexpected, f"Unexpected ML dependencies in CI: {sorted(unexpected)}"
+          PY
+          git diff --exit-code -- poetry.lock
 
       - name: Set up Bun for contract generation
         uses: oven-sh/setup-bun@v2

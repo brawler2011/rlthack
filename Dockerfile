@@ -19,7 +19,7 @@ FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    POETRY_VERSION=1.8.3 \
+    POETRY_VERSION=2.4.1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=false \
     PORT=8000
@@ -37,9 +37,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
 # Install backend dependencies
-COPY backend/pyproject.toml backend/poetry.lock* ./backend/
+COPY backend/pyproject.toml backend/poetry.lock ./backend/
 WORKDIR /app/backend
-RUN poetry install --only main --no-root
+RUN poetry install --only main,ml --no-root
 
 # Copy backend source code and scripts
 COPY backend /app/backend
