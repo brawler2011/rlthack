@@ -191,26 +191,22 @@ def fns_open_data(directory: Path, inns: set[str]) -> dict[str, dict]:
         for values in doc.iter():
             for field, attribute in (("revenue", "СумДоход"), ("expenses", "СумРасход")):
                 if values.get(attribute) is not None:
-                    row[field] = float(values.get(attribute))
+                    row[field] = Decimal(values.get(attribute))
 
     def paytax(row, doc):
-        row["taxes_paid"] = float(
-            sum(
-                (Decimal(e.get("СумУплНал")) for e in doc.iter() if e.get("СумУплНал") is not None),
-                Decimal(0),
-            )
+        row["taxes_paid"] = sum(
+            (Decimal(e.get("СумУплНал")) for e in doc.iter() if e.get("СумУплНал") is not None),
+            Decimal(0),
         )
 
     def debtam(row, doc):
-        row["tax_debt"] = float(
-            sum(
-                (
-                    Decimal(e.get("ОбщСумНедоим"))
-                    for e in doc.iter()
-                    if e.get("ОбщСумНедоим") is not None
-                ),
-                Decimal(0),
-            )
+        row["tax_debt"] = sum(
+            (
+                Decimal(e.get("ОбщСумНедоим"))
+                for e in doc.iter()
+                if e.get("ОбщСумНедоим") is not None
+            ),
+            Decimal(0),
         )
 
     def sshr(row, doc):
@@ -219,11 +215,9 @@ def fns_open_data(directory: Path, inns: set[str]) -> dict[str, dict]:
                 row["headcount"] = int(element.get("КолРаб"))
 
     def taxoffence(row, doc):
-        row["tax_fines"] = float(
-            sum(
-                (Decimal(e.get("СумШтраф")) for e in doc.iter() if e.get("СумШтраф") is not None),
-                Decimal(0),
-            )
+        row["tax_fines"] = sum(
+            (Decimal(e.get("СумШтраф")) for e in doc.iter() if e.get("СумШтраф") is not None),
+            Decimal(0),
         )
 
     for name, handle, date_field in (

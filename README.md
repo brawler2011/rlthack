@@ -76,8 +76,10 @@ CSV uploads do not look up historical winners.
 | `09_organizations` | seconds | names of suppliers outside the SME registry (large companies, state institutions) from EGRUL, `task organizations`; `--build` looks them up again |
 
 `organizations.csv` also holds financial reports for SME registry legal entities, including those
-without procurement history. Refresh all five bulk FNS datasets (income/expenses, taxes paid,
-tax debt, unpaid tax-offence fines and headcount) with
+without procurement history. The bundled resource covers 175,360 legal entities, up from 20,411
+procurement suppliers; all previously included INNs are retained. Monetary amounts keep exact
+kopecks when parsed and written to the resource. Refresh all five bulk FNS datasets (income/expenses,
+taxes paid, tax debt, unpaid tax-offence fines and headcount) with
 `task organizations -- --download-fns --bulk-only`. This keeps existing
 names and registration dates and matches reports to the union of procurement suppliers and the
 loaded SME registry by INN. With archives already downloaded, use
