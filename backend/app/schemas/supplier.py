@@ -43,6 +43,26 @@ class SearchRequest(ContractModel):
         return self
 
 
+class ProfileEvidence(ContractModel):
+    kind: Literal["REFERENCE", "STATISTICS", "PRODUCT", "HISTORY"]
+    description: str
+    okpd2_code: str
+    okved_code: str | None
+    source: str
+    source_url: str | None
+    sample_size: int | None
+    share: float | None
+    lot_ids: list[int]
+
+
+class ProfileFit(ContractModel):
+    status: Literal["HISTORY", "PRODUCT", "PROFILE", "STATISTICAL", "UNKNOWN"]
+    label: str
+    covered_codes: list[str]
+    missing_codes: list[str]
+    evidence: list[ProfileEvidence]
+
+
 class SupplierRecommendation(ContractModel):
     rank: int
     inn: str
@@ -50,7 +70,12 @@ class SupplierRecommendation(ContractModel):
     role: RoleType
     role_display: str
     role_reason: str | None
-    score: float = Field(description="Relevance in [0, 1] within this result")
+    profile_fit: ProfileFit | None
+    score: float = Field(description="Relative relevance multiplied by the current FNS risk factor")
+    base_score: float = Field(description="Relative relevance before the FNS risk adjustment")
+    reliability_factor: float = Field(
+        ge=0, le=1, description="FNS risk multiplier; 1 without risks"
+    )
     win_rate: float | None = Field(description="Over contested lots; None if none")
     n_bids: int
     n_wins: int
@@ -77,8 +102,14 @@ class NewSupplier(ContractModel):
     region_code: str | None
     msp_category: int | None = Field(description="1 micro, 2 small, 3 medium")
     headcount: int | None
+    profile_fit: ProfileFit | None
     reason: str
     score: float
+    base_score: float
+    reliability_factor: float = Field(
+        ge=0, le=1, description="FNS risk multiplier; 1 without risks"
+    )
+    warnings: list[str]
 
 
 class SearchResponse(ContractModel):
@@ -108,6 +139,13 @@ class CompanyTrust(ContractModel):
         description="ACTIVE, INACTIVE, LIQUIDATION_STAGE, ... from the statements registry"
     )
     warnings: list[str]
+    tax_fines: float | None
+    revenue_as_of: date | None
+    taxes_paid_as_of: date | None
+    tax_debt_as_of: date | None
+    headcount_as_of: date | None
+    tax_fines_as_of: date | None
+    refreshed_at: date | None
 
 
 class SupplierCard(ContractModel):

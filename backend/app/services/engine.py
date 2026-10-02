@@ -4,6 +4,7 @@ fraction of a second.
 For a lot from the data the bidding history is cut at the start of the lot's month: the ranking
 is what the service would have shown when the lot came out, and the lot's own winner is not
 leaked into it. New lots typed in by the user are ranked against the whole history.
+The online score also reflects current FNS risks, including for historical lots viewed today.
 """
 
 import threading
@@ -17,6 +18,7 @@ from app.etl import pipeline
 from app.ml import ranker
 from app.ml.candidates import FEATURES, History, Query, load_dataset
 from app.ml.expansion import (
+    Affinity,
     affinity_from_db,
     expand,
     license_affinity_from_db,
@@ -34,9 +36,11 @@ from app.schemas.supplier import (
     SupplierRecommendation,
 )
 from app.schemas.xai import EvidenceLot
+from app.services.profile_fit import assess_profile
 from app.services.trust import (
     HAS_TABLE_SQL,
     is_reliable,
+    reliability_factor,
     role_from_okved,
     trust_rows,
     warnings,
@@ -50,12 +54,14 @@ AUTO_RELEVANCE_THRESHOLD = 0.66
 
 COMPANIES_SQL = """
 SELECT inn, name, role, role_reason, okved_main, okved_main_name, region_code, msp_category,
-       headcount
+       headcount, okved_extra, products
 FROM companies WHERE inn = ANY(%s)
 """
 EVIDENCE_SQL = """
 SELECT b.supplier_inn, l.lot_id, l.publish_date, l.subject, l.start_price::float8 AS start_price,
-       b.is_winner
+       b.is_winner,
+       ARRAY(SELECT DISTINCT i.okpd2_code FROM lot_items i
+             WHERE i.lot_id = l.lot_id AND i.okpd2_code IS NOT NULL) AS okpd2_codes
 FROM bids b JOIN lots l USING (lot_id)
 WHERE b.lot_id = ANY(%s) AND b.supplier_inn = ANY(%s)
 """
@@ -64,6 +70,14 @@ SELECT b.supplier_inn, count(*) FILTER (WHERE b.is_winner) AS wins, count(*) AS 
 FROM bids b JOIN lots l USING (lot_id)
 WHERE l.customer_inn = %s AND l.publish_date < %s AND b.supplier_inn = ANY(%s)
 GROUP BY b.supplier_inn
+"""
+PROFILE_HISTORY_SQL = """
+SELECT b.supplier_inn, b.lot_id, true AS is_winner,
+       array_agg(DISTINCT i.okpd2_code) AS okpd2_codes
+FROM bids b JOIN lots l USING (lot_id) JOIN lot_items i USING (lot_id)
+WHERE b.is_winner AND b.supplier_inn = ANY(%s) AND l.publish_date < %s
+  AND i.okpd2_l4 = ANY(%s)
+GROUP BY b.supplier_inn, b.lot_id
 """
 
 
@@ -79,6 +93,8 @@ def month_start(day: int) -> int:
 class Snapshot:
     history: History
     known: np.ndarray  # registry rows of suppliers that already bid before the cutoff
+    affinity: Affinity | None = None
+    licenses: Affinity | None = None
 
 
 class Engine:
@@ -92,7 +108,7 @@ class Engine:
             self.registry = load_registry(conn)
             self.affinity = affinity_from_db(conn)
             self.licenses = license_affinity_from_db(conn)
-            # Names of suppliers outside the SME registry, if 09_organizations was loaded.
+            # Current FNS data for historical suppliers and registry companies.
             self.has_organizations = bool(conn.execute(HAS_TABLE_SQL).fetchone()[0])
         self.model = ranker.load(settings.catboost_model_path)
         if list(self.model.feature_names_) != list(FEATURES):
@@ -115,7 +131,12 @@ class Engine:
                     del self._snapshots[oldest]
                 history = History(self.data, self.emb, day_to_date(cutoff_day))
                 known = np.isin(self.registry.inns, history.inns)
-                self._snapshots[cutoff_day] = Snapshot(history, known)
+                affinity, licenses = self.affinity, self.licenses
+                if cutoff_day < self.today:
+                    with pipeline.connect() as conn:
+                        affinity = affinity_from_db(conn, day_to_date(cutoff_day))
+                        licenses = license_affinity_from_db(conn, day_to_date(cutoff_day))
+                self._snapshots[cutoff_day] = Snapshot(history, known, affinity, licenses)
             return self._snapshots[cutoff_day]
 
     def lot_row(self, lot_id: int) -> int | None:
@@ -165,17 +186,24 @@ class Engine:
         companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (inns,)).fetchall()}
         trust = trust_rows(conn, inns) if self.has_organizations else {}
         stats = hist.stats
+        risk_factors = np.array(
+            [reliability_factor(trust.get(inn), card.start_price) for inn in inns]
+        )
+        adjusted = relevance * risk_factors
+        risk_order = np.argsort(-adjusted, kind="stable")
         keep = [
             i
-            for i, inn in enumerate(inns)
-            if self._passes(filters, companies.get(inn), stats, int(candidates[i]))
-            and (not filters.only_reliable or is_reliable(trust.get(inn), card.start_price))
-            and (not automatic or relevance[i] >= AUTO_RELEVANCE_THRESHOLD)
+            for i in risk_order.tolist()
+            if self._passes(filters, companies.get(inns[i]), stats, int(candidates[i]))
+            and (not filters.only_reliable or is_reliable(trust.get(inns[i]), card.start_price))
+            and (not automatic or adjusted[i] >= AUTO_RELEVANCE_THRESHOLD)
         ][:limit]
 
         shown = [inns[i] for i in keep]
         shap = self._shap(features[keep]) if keep else np.zeros((0, len(FEATURES)))
         evidence = self._evidence(conn, retrieval, cutoff, shown)
+        profile_history = self._profile_history(conn, cutoff, shown, okpd2_codes)
+        affinity = getattr(snap, "affinity", None) or getattr(self, "affinity", None)
         customer = self._customer_history(conn, card.customer_inn, cutoff, shown)
         winners = set(card.actual_winners)
 
@@ -202,7 +230,15 @@ class Engine:
                     role=role,
                     role_display=ROLE_DISPLAY[role],
                     role_reason=role_reason,
-                    score=round(float(relevance[i]), 3),
+                    profile_fit=assess_profile(
+                        okpd2_codes,
+                        {**org, **company},
+                        affinity,
+                        profile_history.get(inn, []),
+                    ),
+                    score=round(float(adjusted[i]), 3),
+                    base_score=round(float(relevance[i]), 3),
+                    reliability_factor=round(float(risk_factors[i]), 6),
                     win_rate=facts.win_rate,
                     n_bids=facts.bids,
                     n_wins=facts.wins,
@@ -211,15 +247,21 @@ class Engine:
                     is_spb_lo=facts.spb,
                     is_smp=bool(company) or None,
                     is_actual_winner=inn in winners,
-                    explanation=explain(shap[rank - 1], facts, float(relevance[i])),
+                    explanation=explain(shap[rank - 1], facts, float(adjusted[i])),
                     warnings=warnings(org, card.start_price),
                 )
             )
 
-        new_suppliers = self._new_suppliers(conn, snap, okpd2_codes, query.day, new_limit)
-        if automatic and new_suppliers:
-            threshold = max(s.score for s in new_suppliers) * AUTO_RELEVANCE_THRESHOLD
-            new_suppliers = [s for s in new_suppliers if s.score > 0 and s.score >= threshold]
+        new_suppliers = self._new_suppliers(
+            conn,
+            snap,
+            okpd2_codes,
+            query.day,
+            new_limit,
+            card.start_price,
+            filters.only_reliable,
+            AUTO_RELEVANCE_THRESHOLD if automatic else 0,
+        )
         return SearchResponse(
             lot=card,
             items=items,
@@ -271,6 +313,18 @@ class Engine:
         return found
 
     @staticmethod
+    def _profile_history(conn, cutoff: int, inns: list[str], codes: list[str]):
+        groups = sorted({code[:5] for code in codes if len(code) >= 5})
+        if not inns or not groups:
+            return {}
+        found: dict[str, list] = {}
+        for row in conn.execute(
+            PROFILE_HISTORY_SQL, (inns, day_to_date(cutoff), groups)
+        ).fetchall():
+            found.setdefault(row["supplier_inn"], []).append(row)
+        return found
+
+    @staticmethod
     def _customer_history(conn, customer: str | None, cutoff: int, inns: list[str]):
         if not customer or not inns:
             return {}
@@ -317,16 +371,51 @@ class Engine:
             ],
         )
 
-    def _new_suppliers(self, conn, snap: Snapshot, codes, day: int, limit: int):
+    def _new_suppliers(
+        self,
+        conn,
+        snap: Snapshot,
+        codes,
+        day: int,
+        limit: int,
+        price=None,
+        only_reliable=False,
+        min_score: float = 0,
+    ):
         if not limit or not codes:
             return []
+        affinity = getattr(snap, "affinity", None) or self.affinity
+        licenses = getattr(snap, "licenses", None) or self.licenses
         rows, scores, reasons = expand(
-            self.registry, self.affinity, codes, snap.known, day, limit, self.licenses
+            self.registry, affinity, codes, snap.known, day, None, licenses, explain=False
         )
         inns = self.registry.inns[rows].tolist()
-        companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (inns,)).fetchall()}
+        trust = trust_rows(conn, inns) if self.has_organizations else {}
+        factors = np.array([reliability_factor(trust.get(inn), price) for inn in inns])
+        adjusted = scores * factors
+        keep = [
+            i
+            for i in np.argsort(-adjusted, kind="stable").tolist()
+            if adjusted[i] >= min_score
+            and (not only_reliable or is_reliable(trust.get(inns[i]), price))
+        ][:limit]
+        shown = [inns[i] for i in keep]
+        companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (shown,)).fetchall()}
+        # Explain only the displayed rows while preserving the full pool's normalization.
+        reason_rows, _, reasons = expand(
+            self.registry,
+            affinity,
+            codes,
+            snap.known,
+            day,
+            None,
+            licenses,
+            explain_rows=rows[keep],
+        )
+        reason_by_inn = dict(zip(self.registry.inns[reason_rows].tolist(), reasons, strict=True))
         result = []
-        for inn, score, reason in zip(inns, scores.tolist(), reasons, strict=True):
+        for i in keep:
+            inn = inns[i]
             c = companies.get(inn, {})
             role = c.get("role") or "UNKNOWN"
             result.append(
@@ -340,8 +429,12 @@ class Engine:
                     region_code=c.get("region_code"),
                     msp_category=c.get("msp_category"),
                     headcount=c.get("headcount"),
-                    reason=reason,
-                    score=round(score, 3),
+                    profile_fit=assess_profile(codes, c, affinity),
+                    reason=reason_by_inn.get(inn, "Соответствует профилю закупки"),
+                    score=round(float(adjusted[i]), 3),
+                    base_score=round(float(scores[i]), 3),
+                    reliability_factor=round(float(factors[i]), 6),
+                    warnings=warnings(trust.get(inn), price),
                 )
             )
         return result

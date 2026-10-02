@@ -197,8 +197,12 @@ def test_supplier_details_are_included_once_for_repeated_companies(monkeypatch):
         region_code="78",
         msp_category=1,
         headcount=None,
+        profile_fit=None,
         reason="ОКВЭД 38.22 + лицензия на отходы",
         score=1,
+        base_score=1,
+        reliability_factor=1,
+        warnings=[],
     )
     calls = []
 

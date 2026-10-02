@@ -120,6 +120,30 @@
             ],
             "title": "Headcount"
           },
+          "headcount_as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount As Of"
+          },
+          "refreshed_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refreshed At"
+          },
           "registered": {
             "anyOf": [
               {
@@ -143,6 +167,18 @@
             ],
             "description": "Income for the last year, RUB",
             "title": "Revenue"
+          },
+          "revenue_as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue As Of"
           },
           "status": {
             "anyOf": [
@@ -168,6 +204,41 @@
             "description": "Tax arrears, penalties and fines, RUB",
             "title": "Tax Debt"
           },
+          "tax_debt_as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Debt As Of"
+          },
+          "tax_fines": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Fines"
+          },
+          "tax_fines_as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Fines As Of"
+          },
           "taxes_paid": {
             "anyOf": [
               {
@@ -179,6 +250,18 @@
             ],
             "description": "Taxes and contributions paid, RUB",
             "title": "Taxes Paid"
+          },
+          "taxes_paid_as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxes Paid As Of"
           },
           "warnings": {
             "items": {
@@ -196,7 +279,14 @@
           "headcount",
           "registered",
           "status",
-          "warnings"
+          "warnings",
+          "tax_fines",
+          "revenue_as_of",
+          "taxes_paid_as_of",
+          "tax_debt_as_of",
+          "headcount_as_of",
+          "tax_fines_as_of",
+          "refreshed_at"
         ],
         "title": "CompanyTrust",
         "type": "object"
@@ -737,6 +827,10 @@
         "additionalProperties": false,
         "description": "A company from the SME registry with no bids in the data.",
         "properties": {
+          "base_score": {
+            "title": "Base Score",
+            "type": "number"
+          },
           "headcount": {
             "anyOf": [
               {
@@ -797,6 +891,16 @@
             ],
             "title": "Okved Name"
           },
+          "profile_fit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileFit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "reason": {
             "title": "Reason",
             "type": "string"
@@ -811,6 +915,13 @@
               }
             ],
             "title": "Region Code"
+          },
+          "reliability_factor": {
+            "description": "FNS risk multiplier; 1 without risks",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Reliability Factor",
+            "type": "number"
           },
           "role": {
             "enum": [
@@ -829,6 +940,13 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -841,8 +959,12 @@
           "region_code",
           "msp_category",
           "headcount",
+          "profile_fit",
           "reason",
-          "score"
+          "score",
+          "base_score",
+          "reliability_factor",
+          "warnings"
         ],
         "title": "NewSupplier",
         "type": "object"
@@ -869,6 +991,147 @@
           "n_wins"
         ],
         "title": "OkpdExperience",
+        "type": "object"
+      },
+      "ProfileEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "REFERENCE",
+              "STATISTICS",
+              "PRODUCT",
+              "HISTORY"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lot_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Lot Ids",
+            "type": "array"
+          },
+          "okpd2_code": {
+            "title": "Okpd2 Code",
+            "type": "string"
+          },
+          "okved_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Okved Code"
+          },
+          "sample_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Size"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          }
+        },
+        "required": [
+          "kind",
+          "description",
+          "okpd2_code",
+          "okved_code",
+          "source",
+          "source_url",
+          "sample_size",
+          "share",
+          "lot_ids"
+        ],
+        "title": "ProfileEvidence",
+        "type": "object"
+      },
+      "ProfileFit": {
+        "additionalProperties": false,
+        "properties": {
+          "covered_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Covered Codes",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileEvidence"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "missing_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Codes",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "HISTORY",
+              "PRODUCT",
+              "PROFILE",
+              "STATISTICAL",
+              "UNKNOWN"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "label",
+          "covered_codes",
+          "missing_codes",
+          "evidence"
+        ],
+        "title": "ProfileFit",
         "type": "object"
       },
       "SearchFilters": {
@@ -1240,6 +1503,11 @@
             ],
             "title": "Avg Won Price"
           },
+          "base_score": {
+            "description": "Relative relevance before the FNS risk adjustment",
+            "title": "Base Score",
+            "type": "number"
+          },
           "explanation": {
             "$ref": "#/components/schemas/Explanation"
           },
@@ -1287,6 +1555,16 @@
             ],
             "title": "Name"
           },
+          "profile_fit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileFit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "rank": {
             "title": "Rank",
             "type": "integer"
@@ -1301,6 +1579,13 @@
               }
             ],
             "title": "Region Code"
+          },
+          "reliability_factor": {
+            "description": "FNS risk multiplier; 1 without risks",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Reliability Factor",
+            "type": "number"
           },
           "role": {
             "enum": [
@@ -1328,7 +1613,7 @@
             "title": "Role Reason"
           },
           "score": {
-            "description": "Relevance in [0, 1] within this result",
+            "description": "Relative relevance multiplied by the current FNS risk factor",
             "title": "Score",
             "type": "number"
           },
@@ -1360,7 +1645,10 @@
           "role",
           "role_display",
           "role_reason",
+          "profile_fit",
           "score",
+          "base_score",
+          "reliability_factor",
           "win_rate",
           "n_bids",
           "n_wins",

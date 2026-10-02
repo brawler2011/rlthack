@@ -162,10 +162,10 @@ tasks:
       - poetry run python scripts/09_organizations.py
 
   organizations:
-    desc: Load names of suppliers outside the SME registry (resources/organizations.csv)
+    desc: Load or refresh FNS data for suppliers and SME registry companies
     dir: '{{.BACKEND_DIR}}'
     cmds:
-      - poetry run python scripts/09_organizations.py
+      - poetry run python scripts/09_organizations.py {{.CLI_ARGS}}
 
   train:
     desc: Build embeddings and train CatBoost ranker

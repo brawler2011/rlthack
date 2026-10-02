@@ -6,6 +6,7 @@ import type { SupplierEnrichment, SelectedSupplier } from "../types";
 import EvidenceList from "./EvidenceList";
 import ReliabilityWarnings from "./ReliabilityWarnings";
 import CompanyTrustDetails from "./CompanyTrustDetails";
+import ProfileFitDetails from "./ProfileFitDetails";
 
 interface Props {
   supplier: SelectedSupplier;
@@ -62,7 +63,7 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
   const summary = explanation?.summary || ("reason" in supplier ? supplier.reason : null);
   const maxImpact = Math.max(...factors.map((factor) => Math.abs(factor.impact)), 0.001);
   const trust = enrichment.status === "success" ? enrichment.data.trust : null;
-  const warnings = [...new Set([...(known ? supplier.warnings : []), ...(trust?.warnings ?? [])])];
+  const warnings = [...new Set([...supplier.warnings, ...(trust?.warnings ?? [])])];
 
   function retryEnrichment() {
     setEnrichment({ status: "loading" });
@@ -174,12 +175,20 @@ export default function SupplierDialog({ supplier, details, onClose }: Props) {
           </>
         )}
 
+        <ProfileFitDetails fit={supplier.profile_fit} />
+
         <section className="dialog-section" aria-labelledby="trust-heading">
           <div className="dialog-section-heading">
             <h3 id="trust-heading">Надёжность · Данные ФНС</h3>
             <ShieldCheck size={17} aria-hidden="true" />
           </div>
           <ReliabilityWarnings warnings={warnings} />
+          {supplier.reliability_factor < 1 && (
+            <p className="data-unavailable">
+              Балл снижен на {percent(1 - supplier.reliability_factor)} из-за рисков по данным ФНС:{" "}
+              {number(supplier.base_score, 3)} → {number(supplier.score, 3)}.
+            </p>
+          )}
           <div aria-live="polite" aria-busy={enrichment.status === "loading"}>
             {enrichment.status === "loading" && (
               <p className="enrichment-loading">

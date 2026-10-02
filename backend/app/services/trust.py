@@ -1,9 +1,7 @@
 """Reliability of a company from open FNS data (the organizations table, 09_organizations).
 
-Warnings a procurement specialist checks before inviting a supplier: liquidation, tax debt, a
-loss, and a contract that is large next to the company's yearly revenue. They are shown next to
-the recommendation and do not change the ranking: the data are from 2025-2026, later than the
-lots the model learned on.
+Current risks reduce the online recommendation score after the historical ranker runs.
+Offline model evaluations do not use these later reports. Missing data are neutral.
 """
 
 import re
@@ -13,7 +11,9 @@ from app.ml.explainer import money
 TRUST_SQL = """
 SELECT inn, name, okved, status, registered, revenue::float8 AS revenue,
        expenses::float8 AS expenses, taxes_paid::float8 AS taxes_paid,
-       tax_debt::float8 AS tax_debt, headcount
+       tax_debt::float8 AS tax_debt, headcount, tax_fines::float8 AS tax_fines,
+       revenue_as_of, taxes_paid_as_of, tax_debt_as_of, headcount_as_of,
+       tax_fines_as_of, refreshed_at
 FROM organizations WHERE inn = ANY(%s)
 """
 HAS_TABLE_SQL = "SELECT to_regclass('organizations') IS NOT NULL AS ok"
@@ -61,6 +61,8 @@ def warnings(org: dict | None, price: float | None) -> list[str]:
         )
     if (debt := org.get("tax_debt")) and debt >= TAX_DEBT_MIN:
         found.append(f"Налоговая задолженность {money(debt)}")
+    if (fines := org.get("tax_fines")) and fines > 0:
+        found.append(f"Неуплаченные штрафы за налоговые правонарушения {money(fines)}")
     return found
 
 
@@ -72,8 +74,38 @@ def is_reliable(org: dict | None, price: float | None) -> bool:
         return False
     if (org.get("tax_debt") or 0) >= TAX_DEBT_MIN:
         return False
+    if (org.get("tax_fines") or 0) >= TAX_DEBT_MIN:
+        return False
     revenue = org.get("revenue")
     return not (revenue is not None and price and revenue < price)
+
+
+def reliability_factor(org: dict | None, price: float | None) -> float:
+    """Multiply relevance by explicit risk discounts; do not renormalize afterwards.
+
+    These are policy weights, not learned probabilities. Independent risks compound,
+    while the two revenue warnings are mutually exclusive. Unknown values are neutral.
+    """
+    if not org:
+        return 1.0
+    factor = {
+        "INACTIVE": 0.1,
+        "LIQUIDATION_STAGE": 0.1,
+        "BANKRUPTCY_STAGE": 0.1,
+        "REORGANIZATION_STAGE": 0.9,
+    }.get(org.get("status"), 1.0)
+    # The tax-offence fine can also occur in the debt total; do not penalize it twice.
+    if max(org.get("tax_debt") or 0, org.get("tax_fines") or 0) >= TAX_DEBT_MIN:
+        factor *= 0.75
+    revenue, expenses = org.get("revenue"), org.get("expenses")
+    if revenue is not None and price:
+        if revenue <= 0 or price >= revenue:
+            factor *= 0.5
+        elif price / revenue >= PRICE_SHARE_WARN:
+            factor *= 0.8
+    if revenue and expenses is not None and expenses > LOSS_RATIO * revenue:
+        factor *= 0.85
+    return factor
 
 
 # State and municipal institutions file budget reports, not to the statements registry.

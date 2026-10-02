@@ -209,6 +209,10 @@ export interface components {
       expenses: number | null;
       /** Headcount */
       headcount: number | null;
+      /** Headcount As Of */
+      headcount_as_of: string | null;
+      /** Refreshed At */
+      refreshed_at: string | null;
       /** Registered */
       registered: string | null;
       /**
@@ -216,6 +220,8 @@ export interface components {
        * @description Income for the last year, RUB
        */
       revenue: number | null;
+      /** Revenue As Of */
+      revenue_as_of: string | null;
       /**
        * Status
        * @description ACTIVE, INACTIVE, LIQUIDATION_STAGE, ... from the statements registry
@@ -226,11 +232,19 @@ export interface components {
        * @description Tax arrears, penalties and fines, RUB
        */
       tax_debt: number | null;
+      /** Tax Debt As Of */
+      tax_debt_as_of: string | null;
+      /** Tax Fines */
+      tax_fines: number | null;
+      /** Tax Fines As Of */
+      tax_fines_as_of: string | null;
       /**
        * Taxes Paid
        * @description Taxes and contributions paid, RUB
        */
       taxes_paid: number | null;
+      /** Taxes Paid As Of */
+      taxes_paid_as_of: string | null;
       /** Warnings */
       warnings: string[];
     };
@@ -418,6 +432,8 @@ export interface components {
      * @description A company from the SME registry with no bids in the data.
      */
     NewSupplier: {
+      /** Base Score */
+      base_score: number;
       /** Headcount */
       headcount: number | null;
       /** Inn */
@@ -433,10 +449,16 @@ export interface components {
       okved_main: string | null;
       /** Okved Name */
       okved_name: string | null;
+      profile_fit: components["schemas"]["ProfileFit"] | null;
       /** Reason */
       reason: string;
       /** Region Code */
       region_code: string | null;
+      /**
+       * Reliability Factor
+       * @description FNS risk multiplier; 1 without risks
+       */
+      reliability_factor: number;
       /**
        * Role
        * @enum {string}
@@ -446,6 +468,8 @@ export interface components {
       role_display: string;
       /** Score */
       score: number;
+      /** Warnings */
+      warnings: string[];
     };
     /** OkpdExperience */
     OkpdExperience: {
@@ -455,6 +479,46 @@ export interface components {
       n_wins: number;
       /** Prefix */
       prefix: string;
+    };
+    /** ProfileEvidence */
+    ProfileEvidence: {
+      /** Description */
+      description: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "REFERENCE" | "STATISTICS" | "PRODUCT" | "HISTORY";
+      /** Lot Ids */
+      lot_ids: number[];
+      /** Okpd2 Code */
+      okpd2_code: string;
+      /** Okved Code */
+      okved_code: string | null;
+      /** Sample Size */
+      sample_size: number | null;
+      /** Share */
+      share: number | null;
+      /** Source */
+      source: string;
+      /** Source Url */
+      source_url: string | null;
+    };
+    /** ProfileFit */
+    ProfileFit: {
+      /** Covered Codes */
+      covered_codes: string[];
+      /** Evidence */
+      evidence: components["schemas"]["ProfileEvidence"][];
+      /** Label */
+      label: string;
+      /** Missing Codes */
+      missing_codes: string[];
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "HISTORY" | "PRODUCT" | "PROFILE" | "STATISTICAL" | "UNKNOWN";
     };
     /** SearchFilters */
     SearchFilters: {
@@ -562,6 +626,11 @@ export interface components {
     SupplierRecommendation: {
       /** Avg Won Price */
       avg_won_price: number | null;
+      /**
+       * Base Score
+       * @description Relative relevance before the FNS risk adjustment
+       */
+      base_score: number;
       explanation: components["schemas"]["Explanation"];
       /** Inn */
       inn: string;
@@ -583,10 +652,16 @@ export interface components {
       n_wins: number;
       /** Name */
       name: string | null;
+      profile_fit: components["schemas"]["ProfileFit"] | null;
       /** Rank */
       rank: number;
       /** Region Code */
       region_code: string | null;
+      /**
+       * Reliability Factor
+       * @description FNS risk multiplier; 1 without risks
+       */
+      reliability_factor: number;
       /**
        * Role
        * @enum {string}
@@ -598,7 +673,7 @@ export interface components {
       role_reason: string | null;
       /**
        * Score
-       * @description Relevance in [0, 1] within this result
+       * @description Relative relevance multiplied by the current FNS risk factor
        */
       score: number;
       /**

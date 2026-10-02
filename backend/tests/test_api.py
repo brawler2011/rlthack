@@ -78,6 +78,8 @@ def test_search_needs_exactly_one_lot(no_db):
 def api_db(db):
     """The test dataset plus one registry company; the API reads it through get_db."""
     pipeline.run_sql_file(db, "companies_schema.sql")
+    # A previous run may have left an older organizations schema in the test database.
+    pipeline.run_sql_file(db, "organizations_schema.sql")
     db.execute(
         "INSERT INTO companies VALUES ('7802587594', 'ООО «ВЕСЫ»', false, '78', 1, 12, "
         "'2016-08-10', '28.29', 'Производство прочих машин', '{46.69}', '{}', '{}', 'rmsp', "
@@ -141,10 +143,43 @@ def test_supplier_card_outside_the_registry_from_fns_data(api_db, db):
             "46.69.8",
         )
         assert card["trust"]["revenue"] == 2e6
+        assert card["trust"]["tax_fines"] is None
+        assert card["trust"]["tax_debt_as_of"] is None
         assert card["trust"]["warnings"] == [
             "Убыток за последний год: расходы 3,0 млн ₽ при доходах 2,0 млн ₽"
         ]
         assert client.get("/api/v1/enrichment/7802587594").json()["trust"] is None
+    finally:
+        db.execute("DROP TABLE organizations")
+        db.commit()
+
+
+@requires_db
+def test_registry_company_without_bids_has_the_same_fns_details(api_db, db):
+    db.execute(
+        "INSERT INTO companies (inn, name, is_individual, region_code, msp_category, "
+        "headcount, okved_main, okved_extra, products, licenses, source, role) "
+        "VALUES ('7800000001', 'ООО «НОВАЯ»', false, '78', 1, 12, '46.69', "
+        "'{}', '{}', '{}', 'rmsp', 'DISTRIBUTOR')"
+    )
+    pipeline.run_sql_file(db, "organizations_schema.sql")
+    db.execute(
+        "INSERT INTO organizations (inn, registered, status, revenue, expenses, "
+        "taxes_paid, tax_debt, headcount, source) "
+        "VALUES ('7800000001', '2010-01-01', 'ACTIVE', 2e6, 3e6, 100000, 60000, 5, 'fns')"
+    )
+    db.commit()
+    try:
+        card = client.get("/api/v1/enrichment/7800000001").json()
+        assert card["name"] == "ООО «НОВАЯ»" and card["role"] == "DISTRIBUTOR"
+        assert card["n_bids"] == card["n_wins"] == 0 and card["win_rate"] is None
+        assert card["trust"]["revenue"] == 2e6
+        assert card["trust"]["headcount"] == 5
+        assert card["trust"]["registered"] == "2010-01-01"
+        assert card["trust"]["warnings"] == [
+            "Убыток за последний год: расходы 3,0 млн ₽ при доходах 2,0 млн ₽",
+            "Налоговая задолженность 60 тыс. ₽",
+        ]
     finally:
         db.execute("DROP TABLE organizations")
         db.commit()
