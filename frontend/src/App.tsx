@@ -8,8 +8,8 @@ import type { SearchState } from "./components/ResultsPanel";
 import SupplierDialog from "./components/SupplierDialog";
 import { searchSuppliers } from "./services/api";
 import { errorMessage } from "./utils/format";
-import type { LotInput, SupplierItem } from "./types";
-import { toLotInput } from "./utils/lot";
+import type { Procurement, SupplierItem } from "./types";
+import { toSearchLot } from "./utils/lot";
 
 export default function App() {
   const [filters, setFilters] = useState<Filters>({ ...emptyFilters });
@@ -27,7 +27,7 @@ export default function App() {
     }
   }, [state.status]);
 
-  async function search(lot: LotInput) {
+  async function search(lot: Procurement) {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
@@ -36,12 +36,15 @@ export default function App() {
     try {
       const response = await searchSuppliers(
         {
-          lot: toLotInput(lot),
-          role_filter: filters.roles,
-          only_spb_lo: filters.onlySpb,
-          only_smp: filters.onlySmp,
-          min_win_rate: filters.minWinRate / 100,
+          ...toSearchLot(lot),
+          filters: {
+            roles: filters.roles,
+            only_spb_lo: filters.onlySpb,
+            only_smp: filters.onlySmp,
+            min_win_rate: filters.minWinRate / 100,
+          },
           limit: 20,
+          new_limit: 10,
         },
         current.signal
       );

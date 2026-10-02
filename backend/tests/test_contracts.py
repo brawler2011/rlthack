@@ -21,7 +21,8 @@ def test_export_import_does_not_initialize_db_or_ml():
             sys.executable,
             "-c",
             "import scripts.contracts; import sys; "
-            "assert 'app.core.database' not in sys.modules; "
+            "from app.core.database import pool; assert pool.closed; "
+            "from app.services.engine import engine_state; assert engine_state.status == 'idle'; "
             "assert 'catboost' not in sys.modules; "
             "assert 'sentence_transformers' not in sys.modules",
         ],

@@ -144,7 +144,7 @@ tasks:
   db:up:
     desc: Start PostgreSQL in Docker (port 5432)
     cmds:
-      - docker compose up -d db
+      - docker compose up -d --wait db
 
   db:psql:
     desc: Open psql in the project database
@@ -158,7 +158,7 @@ tasks:
     cmds:
       - poetry run python scripts/01_init_db.py
       - poetry run python scripts/02_aggregate_profiles.py
-      - poetry run python scripts/03_enrich_roles.py
+      - poetry run python scripts/03_enrich_roles.py --download
 
   train:
     desc: Build embeddings and train CatBoost ranker
@@ -166,6 +166,29 @@ tasks:
     cmds:
       - poetry run python scripts/04_build_embeddings.py
       - poetry run python scripts/05_train_ranker.py
+
+  pipeline:
+    desc: "Everything the demo needs, once (~45 min): data, SME registry, embeddings, ranker"
+    cmds:
+      - task: db:up
+      - task: data
+      - task: train
+
+  demo:
+    desc: "API on :8000 (engine loads ~1 min, see /api/v1/health) and UI on :5173"
+    deps: [demo:backend, dev:frontend]
+
+  demo:backend:
+    desc: FastAPI backend without autoreload (the engine loads once)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  eval:
+    desc: Evaluate supplier recommendations on a time split (Recall@K, MRR)
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python scripts/06_evaluate.py
 
   up:
     desc: Start all-in-one Docker container (port 8000)

@@ -30,37 +30,64 @@ Search, ranking, and verification service for relevant suppliers, manufacturers,
 
 ---
 
-## Quick Start
+## Quick Start (demo)
 
-### Option 1: Docker Compose (Recommended for evaluation)
+Needs Docker (for PostgreSQL), Python 3.11 with Poetry, Bun and [Task](https://taskfile.dev).
+
 ```bash
-docker compose up --build
+task setup      # Python and frontend dependencies
+# put the dataset CSVs into data/Данные 24-25/ (file names don't matter: detected by columns)
+task pipeline   # once, ~45 min: PostgreSQL, CSV load, FNS SME registry, embeddings, ranker
+task demo       # API http://localhost:8000 (/docs) + UI http://localhost:5173
 ```
-The application will be accessible at: **http://localhost:8000** (API, Swagger `/docs`, and Web UI on a single port).
 
-### Option 2: Local Development Setup
+The API is up at once; the matching engine loads in the background for about a minute —
+`GET /api/v1/health` shows `"engine": "ready"` when search works.
 
-1. **Install dependencies:**
-   ```bash
-   task setup
-   ```
-2. **Initialize database and ML models:**
-   Put the dataset CSVs into `data/Данные 24-25/` (file names don't matter: the file type is detected by its columns).
-   ```bash
-   task db:up
-   task data
-   task train
-   ```
-3. **Run services:**
-   * Backend: `task dev:backend` (http://localhost:8000)
-   * Frontend: `task dev:frontend` (http://localhost:5173)
+| Step of `task pipeline` | Takes | Produces |
+| :--- | :--- | :--- |
+| `01_init_db` | ~1.5 min | `lots`, `lot_items`, `bids` from the CSVs + data quality report |
+| `02_aggregate_profiles` | ~1 min | supplier marts (WinRate over contested lots, OKPD2 and customer history) |
+| `03_enrich_roles --download` | ~15 min (2.1 GB download) | 490k SME registry companies of SPb / LO with roles |
+| `04_build_embeddings` | ~16 min on 4 CPU cores | vectors of 414k unique lot texts |
+| `05_train_ranker` | ~11 min | CatBoost ranker |
 
-4. **Code quality checks and tests:**
-   * Run linters (Ruff + ESLint): `task lint`
-   * Format code (Ruff + Prettier): `task format`
-   * Check formatting: `task format:check`
-   * Run tests: `task test`
-   * View all available commands: `task --list`
+`docker compose up --build` builds the all-in-one image (API + UI on :8000) and mounts `data/` and
+`backend/models/`, so run `task pipeline` first. The image pulls PyTorch and is large.
+
+## Quality
+
+Offline evaluation (`task eval`, `scripts/07_evaluate_expansion.py`): 2000 random lots published
+after 2025-10-01. For each lot the model sees only bids before the start of the lot's month, as the
+API does. The ranker is trained on July–September 2025; its settings were picked on a validation
+split (trained on April–June, checked on July–September) without looking at these lots.
+
+| Method | Winner in top 1 | top 10 | top 20 | MRR@20 |
+| :--- | ---: | ---: | ---: | ---: |
+| OKPD2 prefixes only (baseline) | 9% | 36% | 48% | 0.18 |
+| Vectors (similar past lots) | 21% | 56% | 66% | 0.32 |
+| Vectors + customer history + OKPD2 | 28% | 62% | 70% | 0.39 |
+| **+ CatBoost ranker** | **42%** | **73%** | **79%** | **0.52** |
+
+- The previous ranker scored 38% / 70% / 75% at top 1 / 10 / 20 under the same evaluation. The gain
+  comes from repeat purchases (whether the supplier won this customer's lots most similar to the
+  query, and how long ago), a pool of 200 candidates instead of 100 (on validation the winner is in
+  it for 82% of lots instead of 74%) and the QuerySoftMax loss.
+- Any real bidder of the lot in our top 10: 80% of lots, 87% on the e-shop (only e-shop data lists
+  losing bidders).
+- 5% of winners never bid before: for them the SME registry is the source. 72% of them are in it;
+  their OKVED group is among the 10 we expect for the lot in 42% of cases. With licenses from
+  the registry, such a winner is among the top 100 suggested new companies for 1.6% of these lots
+  (1.0% without): a hard case, the pool has ~350k companies.
+- Roles (manufacturer / distributor / supplier) from the registry OKVED: 60% of the suppliers in the
+  data; the rest are large companies outside the SME registry.
+
+## Development
+
+* Backend with autoreload: `task dev:backend`; frontend: `task dev:frontend`
+* Linters (Ruff + ESLint): `task lint`; formatting: `task format`, `task format:check`
+* Tests: `task test` (database tests need `TEST_DATABASE_URL`, see `backend/README.md`)
+* All commands: `task --list`
 
 ## API contracts
 
@@ -73,13 +100,13 @@ does not start the server, connect to PostgreSQL, or load ML models.
 
 Every JSON model field is required, including nullable fields. Unknown values
 are explicit `null`; missing keys and undeclared fields are rejected. Search
-requests always include filters: `role_filter: []` matches all roles,
-`min_win_rate: 0` disables that filter, and flags and `limit` are explicit.
+requests always include filters: `filters.roles: []` matches all roles,
+`filters.min_win_rate: 0` disables that filter, and flags and `limit` are explicit.
 Query parameters retain their documented defaults. Requests from older clients
 that omit required JSON keys must be updated together with the backend.
 
 API types in the frontend are aliases of generated schemas; do not edit generated
-files or duplicate their interfaces. Use `LotInput` for procurement parameters
-and `LotItem` for historical lot responses. `task contracts:check` regenerates
+files or duplicate their interfaces. Use `LotInput` for new procurement parameters
+and `LotItem` for historical lot summaries. Existing notices are searched by `lot_id`. `task contracts:check` regenerates
 into a temporary directory and fails on stale artifacts without changing them.
 CI and `task check` run this check; `task test` also runs frontend transport tests.

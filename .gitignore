@@ -53,11 +53,15 @@ data/raw/
 data/processed/*.duckdb
 data/processed/*.npz
 data/processed/*.parquet
+data/processed/embeddings/
+data/external/
 data/dictionaries/*.tmp
 
 # ML models & cache
 backend/models/*.cbm
 backend/models/rubert-tiny2/
+backend/models/hf/
+catboost_info/
 .cache/
 huggingface/
 

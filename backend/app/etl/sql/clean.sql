@@ -7,6 +7,7 @@ FROM (
     SELECT
         clean_bigint(lot_id)          AS lot_id,
         clean_bigint(procedure_id)    AS procedure_id,
+        clean_date(publish_date)      AS publish_date,
         clean_text(reqnum)            AS reqnum,
         clean_text(procedure_name)    AS procedure_name,
         clean_text(subject)           AS subject,

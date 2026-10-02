@@ -41,8 +41,6 @@ COPY backend/pyproject.toml backend/poetry.lock* ./backend/
 WORKDIR /app/backend
 RUN poetry install --only main --no-root
 
-WORKDIR /app
-
 # Copy backend source code and scripts
 COPY backend /app/backend
 
@@ -54,5 +52,6 @@ RUN mkdir -p /app/data/processed /app/data/dictionaries
 
 EXPOSE 8000
 
-# Run application
-CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application: imports go through the `app` package, so start from backend/
+WORKDIR /app/backend
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

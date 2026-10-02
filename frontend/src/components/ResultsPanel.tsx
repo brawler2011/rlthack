@@ -10,14 +10,14 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { money, number, percent, roleNames } from "../utils/format";
-import type { LotInput, SearchSuppliersResponse, SupplierItem } from "../types";
+import type { Procurement, SearchSuppliersResponse, SupplierItem } from "../types";
 import type { Filters } from "../utils/filters";
 
 export type SearchState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "success"; response: SearchSuppliersResponse; lot: LotInput; filters: Filters };
+  | { status: "success"; response: SearchSuppliersResponse; lot: Procurement; filters: Filters };
 
 interface Props {
   state: SearchState;
@@ -74,7 +74,7 @@ function SupplierRow({
   index: number;
   onSelect: () => void;
 }) {
-  const summary = supplier.xai?.summary;
+  const summary = supplier.explanation?.summary;
   return (
     <button
       type="button"
@@ -98,13 +98,13 @@ function SupplierRow({
         </div>
         <div className="supplier-stats">
           <span>
-            <strong>{number(supplier.contracts_count)}</strong> контрактов
+            <strong>{number(supplier.n_wins)}</strong> контрактов
           </span>
           <span>
             <strong>{percent(supplier.win_rate)}</strong> побед
           </span>
           <span>
-            Средний контракт <strong>{money(supplier.avg_contract_price)}</strong>
+            Средний контракт <strong>{money(supplier.avg_won_price)}</strong>
           </span>
         </div>
         {summary && (
@@ -138,7 +138,7 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
         <div className="panel-heading">
           <span className="section-index">02</span>
           <h2 id="results-heading">Результаты подбора</h2>
-          {found && <span className="result-count">{number(state.response.total)}</span>}
+          {found && <span className="result-count">{number(state.response.total_candidates)}</span>}
         </div>
         <span className="results-caption">По релевантности</span>
       </div>
@@ -196,16 +196,16 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
             <div className="search-context">
               <FileText size={15} />
               <div>
-                <span>{state.lot.subject}</span>
+                <span>{state.response.lot.subject}</span>
                 <p>
-                  ОКПД2 {state.lot.okpd2_code || "не указан"}
+                  ОКПД2 {state.response.lot.okpd2_codes.join(", ") || "не указан"}
                   <span>·</span>
-                  {money(state.lot.start_price)}
+                  {money(state.response.lot.start_price)}
                 </p>
               </div>
               <span className="inference-time">
                 <Clock3 size={12} />
-                {number(state.response.inference_time_ms, 1)} мс
+                {number(state.response.timing_ms, 1)} мс
               </span>
             </div>
             {(state.filters.roles.length > 0 ||
@@ -257,7 +257,8 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
                 </div>
                 <div className="results-footer">
                   <span>
-                    Показано {number(state.response.items.length)} из {number(state.response.total)}
+                    Показано {number(state.response.items.length)} из{" "}
+                    {number(state.response.total_candidates)}
                   </span>
                   <span>
                     Откройте компанию, чтобы изучить рекомендации

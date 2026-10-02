@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { toLotInput } from "../src/utils/lot";
+import { toSearchLot } from "../src/utils/lot";
 
 const fetchSpy = spyOn(globalThis, "fetch");
-const { searchSuppliers, searchLots, getSupplierEnrichment } = await import("../src/services/api");
+const { searchSuppliers, searchLots, getSupplierEnrichment, getLot } =
+  await import("../src/services/api");
 let timeoutSpy;
 let clearTimeoutSpy;
 
@@ -16,25 +17,24 @@ afterEach(() => {
 afterAll(() => fetchSpy.mockRestore());
 
 const lot = {
-  procedure_name: "Ручной подбор",
   subject: "Ноутбуки",
   start_price: 100000,
-  okpd2_code: "26.20",
+  okpd2_codes: ["26.20"],
+  items: [],
   is_smp: false,
   customer_inn: null,
-  customer_kpp: null,
+  channel: null,
 };
 const body = {
+  lot_id: null,
   lot,
-  role_filter: [],
-  only_spb_lo: false,
-  only_smp: false,
-  min_win_rate: 0,
+  filters: { roles: [], only_spb_lo: false, only_smp: false, min_win_rate: 0 },
   limit: 20,
+  new_limit: 10,
 };
 
 test("search sends all required keys, including nulls and disabled filters", async () => {
-  const result = { total: 0, items: [], inference_time_ms: 0 };
+  const result = { lot, items: [], new_suppliers: [], total_candidates: 0, timing_ms: 0 };
   fetchSpy.mockResolvedValue(Response.json(result));
   expect(await searchSuppliers(body)).toEqual(result);
   const [request] = fetchSpy.mock.calls[0];
@@ -44,19 +44,46 @@ test("search sends all required keys, including nulls and disabled filters", asy
   expect(await request.json()).toEqual(body);
 });
 
-test("historical lot is projected to the input contract before searching", async () => {
-  const historical = { ...lot, lot_id: 123, publish_date: null, procedure_id: 456 };
-  fetchSpy.mockResolvedValue(Response.json({ total: 0, items: [], inference_time_ms: 0 }));
-  await searchSuppliers({ ...body, lot: toLotInput(historical) });
+test("historical lot searches by ID without sending response-only fields", async () => {
+  const historical = {
+    lot_id: 123,
+    publish_date: null,
+    subject: null,
+    start_price: null,
+    channel: null,
+    customer_inn: null,
+  };
+  fetchSpy.mockResolvedValue(
+    Response.json({ lot, items: [], new_suppliers: [], total_candidates: 0, timing_ms: 0 })
+  );
+  await searchSuppliers({ ...body, ...toSearchLot(historical) });
+  const sent = await fetchSpy.mock.calls[0][0].json();
+  expect(sent.lot_id).toBe(123);
+  expect(sent.lot).toBeNull();
+  expect(sent).not.toHaveProperty("publish_date");
+});
+
+test("manual lot projects only the required input fields", async () => {
+  fetchSpy.mockResolvedValue(
+    Response.json({ lot, items: [], new_suppliers: [], total_candidates: 0, timing_ms: 0 })
+  );
+  await searchSuppliers({ ...body, ...toSearchLot({ ...lot, actual_winners: [] }) });
   const sent = await fetchSpy.mock.calls[0][0].json();
   expect(sent.lot).toEqual(lot);
-  expect(sent.lot).not.toHaveProperty("lot_id");
-  expect(sent.lot).not.toHaveProperty("publish_date");
-  expect(sent.lot).not.toHaveProperty("procedure_id");
+  expect(sent.lot_id).toBeNull();
 });
 
 test("lot search serializes query parameters and returns historical lots", async () => {
-  const result = [{ ...lot, lot_id: 1, publish_date: null, procedure_id: null }];
+  const result = [
+    {
+      lot_id: 1,
+      publish_date: null,
+      subject: null,
+      start_price: null,
+      channel: null,
+      customer_inn: null,
+    },
+  ];
   fetchSpy.mockResolvedValue(Response.json(result));
   expect(await searchLots("Бумага & картриджи")).toEqual(result);
   const url = new URL(fetchSpy.mock.calls[0][0].url);
@@ -65,13 +92,41 @@ test("lot search serializes query parameters and returns historical lots", async
   expect(url.searchParams.get("limit")).toBe("20");
 });
 
+test("lot card uses the typed path and returns the current contract", async () => {
+  const card = {
+    ...lot,
+    lot_id: 123,
+    publish_date: null,
+    procedure_name: null,
+    actual_winners: [],
+  };
+  fetchSpy.mockResolvedValue(Response.json(card));
+  expect(await getLot(123)).toEqual(card);
+  expect(new URL(fetchSpy.mock.calls[0][0].url).pathname).toBe("/api/v1/lots/123");
+});
+
 test("enrichment uses the typed path and preserves explicit nulls", async () => {
   const result = {
     inn: "7802587594",
-    role: null,
-    is_gisp_manufacturer: null,
+    name: null,
+    role: "UNKNOWN",
+    role_display: "Роль не определена",
+    role_reason: null,
     okved_main: null,
-    status: null,
+    okved_name: null,
+    okved_extra: [],
+    region_code: null,
+    is_spb_lo: null,
+    msp_category: null,
+    headcount: null,
+    msp_since: null,
+    n_bids: 0,
+    n_wins: 0,
+    win_rate: null,
+    avg_won_price: null,
+    n_customers: 0,
+    top_okpd2: [],
+    recent_lots: [],
   };
   fetchSpy.mockResolvedValue(Response.json(result));
   expect(await getSupplierEnrichment(result.inn)).toEqual(result);

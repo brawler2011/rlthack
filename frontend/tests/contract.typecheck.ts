@@ -15,8 +15,8 @@ export const undefinedName: SupplierItem["name"] = undefined;
 // @ts-expect-error Nullable fields must still be present.
 export const missingLotKeys: LotInput = { subject: "Ноутбуки" };
 // @ts-expect-error Filters use a list, never null.
-export const nullRoleFilter: SearchSuppliersRequest["role_filter"] = null;
+export const nullRoleFilter: SearchSuppliersRequest["filters"]["roles"] = null;
 // @ts-expect-error The win-rate filter uses a number, never undefined.
-export const undefinedWinRate: SearchSuppliersRequest["min_win_rate"] = undefined;
+export const undefinedWinRate: SearchSuppliersRequest["filters"]["min_win_rate"] = undefined;
 // @ts-expect-error Role is a closed enum.
-export const invalidRole: SupplierItem["role"] = "UNKNOWN";
+export const invalidRole: SupplierItem["role"] = "OTHER";

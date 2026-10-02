@@ -1,12 +1,14 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.schemas.supplier import SupplierSearchRequest, SupplierSearchResponse
+from app.core.database import get_db
+from app.schemas.supplier import SearchRequest, SearchResponse
 from app.services.search_service import search_service
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 
 
-@router.post("/search", response_model=SupplierSearchResponse, operation_id="search_suppliers")
-def search_suppliers(request: SupplierSearchRequest) -> SupplierSearchResponse:
-    """Search and rank suppliers matching procurement parameters."""
-    return search_service.search(request)
+@router.post("/search", response_model=SearchResponse, operation_id="search_suppliers")
+def search_suppliers(request: SearchRequest, conn=Depends(get_db)):
+    """Rank suppliers for a lot from the data (lot_id) or a new one (lot), with explanations,
+    plus new companies from the SME registry that fit the lot."""
+    return search_service.search(conn, request)

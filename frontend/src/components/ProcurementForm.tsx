@@ -12,14 +12,14 @@ import {
 } from "lucide-react";
 import { searchLots } from "../services/api";
 import { errorMessage, money, roles } from "../utils/format";
-import type { LotInput, LotItem } from "../types";
+import type { Procurement, LotItem } from "../types";
 import { emptyFilters } from "../utils/filters";
 import type { Filters } from "../utils/filters";
 
 interface Props {
   filters: Filters;
   onFiltersChange: (filters: Filters) => void;
-  onSearch: (lot: LotInput) => void;
+  onSearch: (lot: Procurement) => void;
   onDraftChange: () => void;
   onCancel: () => void;
   loading: boolean;
@@ -66,7 +66,7 @@ function LotPicker({ onSelect }: { onSelect: (lot: LotItem | null) => void }) {
           <input
             id="notice-query"
             type="search"
-            placeholder="Предмет закупки или код ОКПД2"
+            placeholder="Предмет закупки или номер извещения"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             maxLength={300}
@@ -123,15 +123,15 @@ function LotPicker({ onSelect }: { onSelect: (lot: LotItem | null) => void }) {
               }}
             >
               <span className="notice-option-top">
-                <span>{lot.lot_id ? `№ ${lot.lot_id}` : lot.procedure_name}</span>
+                <span>{`№ ${lot.lot_id}`}</span>
                 <span className="selection-circle">
                   {selected === index && <Check size={12} />}
                 </span>
               </span>
-              <strong>{lot.subject}</strong>
+              <strong>{lot.subject || "Предмет не указан"}</strong>
               <span className="notice-option-meta">
                 {money(lot.start_price)}
-                <span>ОКПД2 {lot.okpd2_code || "не указан"}</span>
+                <span>{lot.channel || "Канал не указан"}</span>
               </span>
             </button>
           ))}
@@ -169,19 +169,19 @@ export default function ProcurementForm({
       return;
     }
     const field = event.currentTarget.elements.namedItem("subject") as HTMLTextAreaElement;
-    if (!subject.trim()) {
-      field.setCustomValidity("Укажите предмет закупки.");
+    if (subject.trim().length < 3) {
+      field.setCustomValidity("Укажите предмет закупки: минимум 3 символа.");
       field.reportValidity();
       return;
     }
     onSearch({
-      procedure_name: "Ручной подбор",
       subject: subject.trim(),
       start_price: Number(price),
-      okpd2_code: code.trim(),
+      okpd2_codes: code.trim() ? [code.trim()] : [],
+      items: [],
+      channel: null,
       is_smp: smp,
       customer_inn: null,
-      customer_kpp: null,
     });
   }
 
@@ -319,7 +319,7 @@ export default function ProcurementForm({
                 <strong>{notice.subject}</strong>
                 <div>
                   {money(notice.start_price)}
-                  <span>ОКПД2 {notice.okpd2_code || "не указан"}</span>
+                  <span>{notice.channel || "Канал не указан"}</span>
                 </div>
               </div>
             )

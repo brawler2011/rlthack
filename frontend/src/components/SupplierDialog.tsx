@@ -1,14 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  Building2,
-  Check,
-  LoaderCircle,
-  MapPin,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, LoaderCircle, MapPin, ShieldCheck, X } from "lucide-react";
 import { getSupplierEnrichment } from "../services/api";
 import { errorMessage, money, number, percent, roleNames } from "../utils/format";
 import type { SupplierEnrichment, SupplierItem } from "../types";
@@ -37,24 +28,12 @@ const factorNames: Record<string, string> = {
   okpd2_match: "Опыт по коду ОКПД2",
 };
 
-function statusLabel(status: SupplierEnrichment["status"]) {
-  if (!status) return "Нет данных";
-  return (
-    (
-      { ACTIVE: "Действующая", INACTIVE: "Не действует", LIQUIDATED: "Ликвидирована" } as Record<
-        string,
-        string
-      >
-    )[status] ?? status
-  );
-}
-
 export default function SupplierDialog({ supplier, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [enrichment, setEnrichment] = useState<EnrichmentState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const factors = supplier.xai?.factors ?? [];
-  const maxImpact = Math.max(...factors.map((factor) => Math.abs(factor.shap_value)), 0.001);
+  const factors = supplier.explanation?.factors ?? [];
+  const maxImpact = Math.max(...factors.map((factor) => Math.abs(factor.impact)), 0.001);
 
   useEffect(() => {
     const element = dialog.current;
@@ -120,10 +99,7 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
           <Building2 size={28} strokeWidth={1.5} />
         </div>
         <h2 id="supplier-dialog-title">{supplier.name || "Наименование не указано"}</h2>
-        <p className="company-identifiers">
-          ИНН {supplier.inn}
-          {supplier.kpp && <span>КПП {supplier.kpp}</span>}
-        </p>
+        <p className="company-identifiers">ИНН {supplier.inn}</p>
         <div className="company-badges">
           <span className={`role-badge role-${supplier.role.toLowerCase()}`}>
             {supplier.role_display || roleNames[supplier.role]}
@@ -139,7 +115,7 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
         <dl className="company-metrics">
           <div>
             <dt>Контрактов</dt>
-            <dd>{number(supplier.contracts_count)}</dd>
+            <dd>{number(supplier.n_wins)}</dd>
           </div>
           <div>
             <dt>Доля побед</dt>
@@ -152,7 +128,7 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
         </dl>
         <div className="average-contract">
           <span>Средняя стоимость контракта</span>
-          <strong>{money(supplier.avg_contract_price)}</strong>
+          <strong>{money(supplier.avg_won_price)}</strong>
         </div>
 
         <section className="dialog-section" aria-labelledby="explanation-heading">
@@ -160,8 +136,8 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
             <h3 id="explanation-heading">Почему рекомендован</h3>
             <span className="explanation-dot" />
           </div>
-          {supplier.xai?.summary ? (
-            <p className="xai-summary">{supplier.xai.summary}</p>
+          {supplier.explanation?.summary ? (
+            <p className="xai-summary">{supplier.explanation.summary}</p>
           ) : (
             <p className="data-unavailable">Сервис пока не предоставил объяснение рекомендации.</p>
           )}
@@ -179,34 +155,34 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
                 </span>
               </div>
               {factors.map((factor, index) => (
-                <div className="xai-factor" key={`${factor.factor_name}-${index}`}>
+                <div className="xai-factor" key={`${factor.name}-${index}`}>
                   <div className="factor-label">
-                    <strong>{factorNames[factor.factor_name] || factor.factor_name}</strong>
+                    <strong>{factorNames[factor.name] || factor.name}</strong>
                     <span
                       className={
-                        factor.shap_value > 0
+                        factor.impact > 0
                           ? "positive-impact"
-                          : factor.shap_value < 0
+                          : factor.impact < 0
                             ? "negative-impact"
                             : ""
                       }
                     >
-                      {factor.shap_value > 0 ? (
+                      {factor.impact > 0 ? (
                         <ArrowUp size={12} />
-                      ) : factor.shap_value < 0 ? (
+                      ) : factor.impact < 0 ? (
                         <ArrowDown size={12} />
                       ) : null}
-                      {factor.shap_value > 0 ? "+" : ""}
-                      {number(factor.shap_value, 3)}
+                      {factor.impact > 0 ? "+" : ""}
+                      {number(factor.impact, 3)}
                     </span>
                   </div>
                   <div className="factor-track" aria-hidden="true">
                     <span
-                      className={factor.shap_value < 0 ? "negative" : ""}
-                      style={{ width: `${(Math.abs(factor.shap_value) / maxImpact) * 100}%` }}
+                      className={factor.impact < 0 ? "negative" : ""}
+                      style={{ width: `${(Math.abs(factor.impact) / maxImpact) * 100}%` }}
                     />
                   </div>
-                  {factor.description && <p>{factor.description}</p>}
+                  {factor.text && <p>{factor.text}</p>}
                 </div>
               ))}
               <p className="factor-footnote">
@@ -251,8 +227,18 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
               <>
                 <dl className="enrichment-list">
                   <div>
-                    <dt>Статус компании</dt>
-                    <dd>{statusLabel(enrichment.data.status)}</dd>
+                    <dt>Категория МСП</dt>
+                    <dd>
+                      {enrichment.data.msp_category === null
+                        ? "Нет данных"
+                        : (
+                            {
+                              1: "Микропредприятие",
+                              2: "Малое предприятие",
+                              3: "Среднее предприятие",
+                            } as Record<number, string>
+                          )[enrichment.data.msp_category] || "Нет данных"}
+                    </dd>
                   </div>
                   <div>
                     <dt>Основной ОКВЭД</dt>
@@ -263,26 +249,16 @@ export default function SupplierDialog({ supplier, onClose }: Props) {
                     <dd>{enrichment.data.role ? roleNames[enrichment.data.role] : "Нет данных"}</dd>
                   </div>
                   <div>
-                    <dt>Производитель в ГИСП</dt>
-                    <dd
-                      className={enrichment.data.is_gisp_manufacturer ? "registry-confirmed" : ""}
-                    >
-                      {enrichment.data.is_gisp_manufacturer === true ? (
-                        <>
-                          <Check size={14} />
-                          Подтверждено
-                        </>
-                      ) : enrichment.data.is_gisp_manufacturer === false ? (
-                        "Не подтверждено"
-                      ) : (
-                        "Нет данных"
-                      )}
+                    <dt>Численность сотрудников</dt>
+                    <dd>
+                      {enrichment.data.headcount === null
+                        ? "Нет данных"
+                        : number(enrichment.data.headcount)}
                     </dd>
                   </div>
                 </dl>
                 <p className="factor-footnote">
-                  Статус производителя показан по данным обогащения из реестра ГИСП. Обоснование
-                  других ролей доступно, если его предоставил сервис.
+                  {enrichment.data.role_reason || "Роль компании определена по данным реестра МСП."}
                 </p>
               </>
             )}

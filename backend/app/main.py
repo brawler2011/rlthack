@@ -8,15 +8,17 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.config import settings
+from app.core.database import close_db, open_db
 from app.schemas.errors import ValidationErrorResponse, ValidationIssue
+from app.services.engine import engine_state
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.core.database import close_db, open_db
-
-    # PostgreSQL connection pool
+    # PostgreSQL connection pool; the matching engine loads in the background (~1 min)
     open_db()
+    if settings.load_engine:
+        engine_state.start()
     yield
     # Close resources
     close_db()

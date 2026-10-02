@@ -15,7 +15,8 @@ export interface paths {
     put?: never;
     /**
      * Simulate Batch Recommendations
-     * @description Simulate background worker matching suppliers to new procurement notices.
+     * @description The background robot for one day: newly published notices, suppliers to invite for each
+     *     (known ones with the reason, plus new companies from the SME registry).
      */
     post: operations["simulate_batch"];
     delete?: never;
@@ -33,7 +34,8 @@ export interface paths {
     };
     /**
      * Get Enrichment
-     * @description Detailed company profile: OKVED, Minpromtorg registries, SME (MSP) status.
+     * @description Company card: bidding history from the data plus OKVED, role and size from the SME
+     *     registry. Works for new companies that never bid too.
      */
     get: operations["get_enrichment"];
     put?: never;
@@ -51,7 +53,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Health Check */
+    /**
+     * Health Check
+     * @description The API is up; engine: idle / loading / ready / failed (search needs ready).
+     */
     get: operations["health"];
     put?: never;
     post?: never;
@@ -70,7 +75,7 @@ export interface paths {
     };
     /**
      * Search Lots
-     * @description Search historical lots and procurement notices for 2024-2025.
+     * @description Find lots by subject text, lot id or registry number; newest first.
      */
     get: operations["search_lots"];
     put?: never;
@@ -90,7 +95,7 @@ export interface paths {
     };
     /**
      * Get Lot
-     * @description Get detailed information for a specific lot.
+     * @description A lot with its items, OKPD2 codes and the real winners.
      */
     get: operations["get_lot"];
     put?: never;
@@ -112,7 +117,8 @@ export interface paths {
     put?: never;
     /**
      * Search Suppliers
-     * @description Search and rank suppliers matching procurement parameters.
+     * @description Rank suppliers for a lot from the data (lot_id) or a new one (lot), with explanations,
+     *     plus new companies from the SME registry that fit the lot.
      */
     post: operations["search_suppliers"];
     delete?: never;
@@ -125,18 +131,71 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** BatchLotResult */
+    BatchLotResult: {
+      /**
+       * Actual Winners
+       * @description Who really won (demo)
+       */
+      actual_winners: string[];
+      /** Invitations */
+      invitations: components["schemas"]["Invitation"][];
+      lot: components["schemas"]["LotListItem"];
+      /**
+       * Winner Invited
+       * @description The real winner is among the invitations (demo)
+       */
+      winner_invited: boolean;
+    };
     /** BatchResponse */
     BatchResponse: {
-      /** Matched Lots */
-      matched_lots: components["schemas"]["MatchedLot"][];
       /**
-       * Status
-       * @constant
+       * Day
+       * Format: date
+       * @description Publication date of the processed notices
        */
-      status: "ok";
+      day: string;
+      /** Lots */
+      lots: components["schemas"]["BatchLotResult"][];
+      /** Timing Ms */
+      timing_ms: number;
+      /** Total Invitations */
+      total_invitations: number;
+    };
+    /**
+     * EvidenceLot
+     * @description A past lot similar to the query that the supplier bid on.
+     */
+    EvidenceLot: {
+      /** Lot Id */
+      lot_id: number;
+      /** Publish Date */
+      publish_date: string | null;
+      /** Start Price */
+      start_price: number | null;
+      /** Subject */
+      subject: string | null;
+      /** Won */
+      won: boolean;
+    };
+    /** Explanation */
+    Explanation: {
+      /** Evidence */
+      evidence: components["schemas"]["EvidenceLot"][];
+      /** Factors */
+      factors: components["schemas"]["XaiFactor"][];
+      /**
+       * Level
+       * @enum {string}
+       */
+      level: "HIGH" | "MEDIUM" | "LOW";
+      /** Summary */
+      summary: string;
     };
     /** HealthResponse */
     HealthResponse: {
+      /** Engine */
+      engine: string;
       /**
        * Service
        * @constant
@@ -148,101 +207,161 @@ export interface components {
        */
       status: "ok";
     };
-    /** LotBase */
-    LotBase: {
-      /** Customer Inn */
-      customer_inn: string | null;
-      /** Customer Kpp */
-      customer_kpp: string | null;
-      /** Is Smp */
-      is_smp: boolean;
-      /** Okpd2 Code */
-      okpd2_code: string;
-      /** Procedure Name */
-      procedure_name: string;
-      /** Start Price */
-      start_price: number;
-      /** Subject */
-      subject: string;
-    };
-    /** LotResponse */
-    LotResponse: {
-      /** Customer Inn */
-      customer_inn: string | null;
-      /** Customer Kpp */
-      customer_kpp: string | null;
-      /** Is Smp */
-      is_smp: boolean;
-      /** Lot Id */
-      lot_id: number | null;
-      /** Okpd2 Code */
-      okpd2_code: string;
-      /** Procedure Id */
-      procedure_id: number | null;
-      /** Procedure Name */
-      procedure_name: string;
-      /** Publish Date */
-      publish_date: string | null;
-      /** Start Price */
-      start_price: number;
-      /** Subject */
-      subject: string;
-    };
-    /** MatchedLot */
-    MatchedLot: {
-      lot: components["schemas"]["LotResponse"];
-      recommendations: components["schemas"]["SupplierSearchResponse"];
-    };
-    /** SupplierEnrichment */
-    SupplierEnrichment: {
+    /**
+     * Invitation
+     * @description A supplier the robot would invite to the lot's procurement.
+     */
+    Invitation: {
       /** Inn */
       inn: string;
-      /** Is Gisp Manufacturer */
-      is_gisp_manufacturer: boolean | null;
-      /** Okved Main */
-      okved_main: string | null;
-      /** Role */
-      role: ("MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER") | null;
-      /** Status */
-      status: string | null;
-    };
-    /** SupplierProfile */
-    SupplierProfile: {
-      /** Avg Contract Price */
-      avg_contract_price: number;
-      /** Contracts Count */
-      contracts_count: number;
-      /** Inn */
-      inn: string;
-      /** Is Smp */
-      is_smp: boolean;
-      /** Is Spb Lo */
-      is_spb_lo: boolean;
-      /** Kpp */
-      kpp: string | null;
+      /**
+       * Is New
+       * @description From the SME registry, never bid before
+       */
+      is_new: boolean;
       /** Name */
       name: string | null;
-      /**
-       * Role
-       * @enum {string}
-       */
-      role: "MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER";
+      /** Reason */
+      reason: string;
       /** Role Display */
       role_display: string;
       /** Score */
       score: number;
-      /** Win Rate */
-      win_rate: number;
-      xai: components["schemas"]["XaiReport"] | null;
     };
-    /** SupplierSearchRequest */
-    SupplierSearchRequest: {
-      /** Limit */
-      limit: number;
-      lot: components["schemas"]["LotBase"];
+    /** LotCard */
+    LotCard: {
+      /**
+       * Actual Winners
+       * @description INNs of the real winners, for lots from the data (demo)
+       */
+      actual_winners: string[];
+      /** Channel */
+      channel: string | null;
+      /** Customer Inn */
+      customer_inn: string | null;
+      /** Is Smp */
+      is_smp: boolean;
+      /** Items */
+      items: string[];
+      /**
+       * Lot Id
+       * @description None for a new lot
+       */
+      lot_id: number | null;
+      /** Okpd2 Codes */
+      okpd2_codes: string[];
+      /** Procedure Name */
+      procedure_name: string | null;
+      /** Publish Date */
+      publish_date: string | null;
+      /** Start Price */
+      start_price: number | null;
+      /** Subject */
+      subject: string;
+    };
+    /** LotListItem */
+    LotListItem: {
+      /** Channel */
+      channel: string | null;
+      /** Customer Inn */
+      customer_inn: string | null;
+      /** Lot Id */
+      lot_id: number;
+      /** Publish Date */
+      publish_date: string | null;
+      /** Start Price */
+      start_price: number | null;
+      /** Subject */
+      subject: string | null;
+    };
+    /**
+     * NewLot
+     * @description A procurement that is not in the data yet, typed in by the user.
+     */
+    NewLot: {
+      /**
+       * Channel
+       * @description «АИС ГЗ» or «ЭМ» (e-shop)
+       */
+      channel: string | null;
+      /** Customer Inn */
+      customer_inn: string | null;
+      /**
+       * Is Smp
+       * @description Only for SMEs
+       */
+      is_smp: boolean;
+      /**
+       * Items
+       * @description Item (TRU) names
+       */
+      items: string[];
+      /**
+       * Okpd2 Codes
+       * @example [
+       *       "20.59.12.120"
+       *     ]
+       */
+      okpd2_codes: string[];
+      /**
+       * Start Price
+       * @description Initial max price, RUB
+       */
+      start_price: number | null;
+      /**
+       * Subject
+       * @example Поставка картриджей для принтеров HP
+       */
+      subject: string;
+    };
+    /**
+     * NewSupplier
+     * @description A company from the SME registry with no bids in the data.
+     */
+    NewSupplier: {
+      /** Headcount */
+      headcount: number | null;
+      /** Inn */
+      inn: string;
+      /**
+       * Msp Category
+       * @description 1 micro, 2 small, 3 medium
+       */
+      msp_category: number | null;
+      /** Name */
+      name: string | null;
+      /** Okved Main */
+      okved_main: string | null;
+      /** Okved Name */
+      okved_name: string | null;
+      /** Reason */
+      reason: string;
+      /** Region Code */
+      region_code: string | null;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER" | "UNKNOWN";
+      /** Role Display */
+      role_display: string;
+      /** Score */
+      score: number;
+    };
+    /** OkpdExperience */
+    OkpdExperience: {
+      /** N Bids */
+      n_bids: number;
+      /** N Wins */
+      n_wins: number;
+      /** Prefix */
+      prefix: string;
+    };
+    /** SearchFilters */
+    SearchFilters: {
       /**
        * Min Win Rate
-       * @description Zero disables the win-rate filter.
+       * @description Zero disables the win-rate filter
        */
       min_win_rate: number;
       /** Only Smp */
@@ -250,19 +369,137 @@ export interface components {
       /** Only Spb Lo */
       only_spb_lo: boolean;
       /**
-       * Role Filter
-       * @description Empty list matches all roles.
+       * Roles
+       * @description Empty list matches all roles
        */
-      role_filter: ("MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER")[];
+      roles: ("MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER" | "UNKNOWN")[];
     };
-    /** SupplierSearchResponse */
-    SupplierSearchResponse: {
-      /** Inference Time Ms */
-      inference_time_ms: number;
+    /**
+     * SearchRequest
+     * @description Either an existing lot (lot_id) or a new one (lot).
+     */
+    SearchRequest: {
+      filters: components["schemas"]["SearchFilters"];
+      /** Limit */
+      limit: number;
+      lot: components["schemas"]["NewLot"] | null;
+      /** Lot Id */
+      lot_id: number | null;
+      /**
+       * New Limit
+       * @description New suppliers to suggest
+       */
+      new_limit: number;
+    };
+    /** SearchResponse */
+    SearchResponse: {
       /** Items */
-      items: components["schemas"]["SupplierProfile"][];
-      /** Total */
-      total: number;
+      items: components["schemas"]["SupplierRecommendation"][];
+      lot: components["schemas"]["LotCard"];
+      /** New Suppliers */
+      new_suppliers: components["schemas"]["NewSupplier"][];
+      /** Timing Ms */
+      timing_ms: number;
+      /** Total Candidates */
+      total_candidates: number;
+    };
+    /**
+     * SupplierCard
+     * @description Everything known about a company: history from the data plus the SME registry.
+     */
+    SupplierCard: {
+      /** Avg Won Price */
+      avg_won_price: number | null;
+      /** Headcount */
+      headcount: number | null;
+      /** Inn */
+      inn: string;
+      /** Is Spb Lo */
+      is_spb_lo: boolean | null;
+      /** Msp Category */
+      msp_category: number | null;
+      /** Msp Since */
+      msp_since: string | null;
+      /** N Bids */
+      n_bids: number;
+      /** N Customers */
+      n_customers: number;
+      /** N Wins */
+      n_wins: number;
+      /** Name */
+      name: string | null;
+      /** Okved Extra */
+      okved_extra: string[];
+      /** Okved Main */
+      okved_main: string | null;
+      /** Okved Name */
+      okved_name: string | null;
+      /** Recent Lots */
+      recent_lots: components["schemas"]["EvidenceLot"][];
+      /** Region Code */
+      region_code: string | null;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER" | "UNKNOWN";
+      /** Role Display */
+      role_display: string;
+      /** Role Reason */
+      role_reason: string | null;
+      /** Top Okpd2 */
+      top_okpd2: components["schemas"]["OkpdExperience"][];
+      /** Win Rate */
+      win_rate: number | null;
+    };
+    /** SupplierRecommendation */
+    SupplierRecommendation: {
+      /** Avg Won Price */
+      avg_won_price: number | null;
+      explanation: components["schemas"]["Explanation"];
+      /** Inn */
+      inn: string;
+      /**
+       * Is Actual Winner
+       * @description Won this lot in reality (demo)
+       */
+      is_actual_winner: boolean;
+      /**
+       * Is Smp
+       * @description In the FNS SME registry
+       */
+      is_smp: boolean | null;
+      /** Is Spb Lo */
+      is_spb_lo: boolean;
+      /** N Bids */
+      n_bids: number;
+      /** N Wins */
+      n_wins: number;
+      /** Name */
+      name: string | null;
+      /** Rank */
+      rank: number;
+      /** Region Code */
+      region_code: string | null;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "MANUFACTURER" | "DISTRIBUTOR" | "SUPPLIER" | "UNKNOWN";
+      /** Role Display */
+      role_display: string;
+      /** Role Reason */
+      role_reason: string | null;
+      /**
+       * Score
+       * @description Relevance in [0, 1] within this result
+       */
+      score: number;
+      /**
+       * Win Rate
+       * @description Over contested lots; None if none
+       */
+      win_rate: number | null;
     };
     /** ValidationErrorResponse */
     ValidationErrorResponse: {
@@ -280,24 +517,21 @@ export interface components {
     };
     /** XaiFactor */
     XaiFactor: {
-      /** Description */
-      description: string;
-      /** Factor Name */
-      factor_name: string;
-      /** Shap Value */
-      shap_value: number;
-    };
-    /** XaiReport */
-    XaiReport: {
-      /** Factors */
-      factors: components["schemas"]["XaiFactor"][];
       /**
-       * Recommendation Level
-       * @enum {string}
+       * Impact
+       * @description Contribution to the rank score (SHAP); > 0 pushes up
        */
-      recommendation_level: "HIGH" | "MEDIUM" | "LOW";
-      /** Summary */
-      summary: string;
+      impact: number;
+      /**
+       * Name
+       * @description Feature key, e.g. customer_score
+       */
+      name: string;
+      /**
+       * Text
+       * @description Human-readable reason with the actual value
+       */
+      text: string;
     };
   };
   responses: never;
@@ -310,7 +544,15 @@ export type $defs = Record<string, never>;
 export interface operations {
   simulate_batch: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Notices of this day; default: the last */
+        day?: string | null;
+        max_lots?: number;
+        /** @description Known suppliers to invite */
+        per_lot?: number;
+        /** @description New registry companies */
+        new_per_lot?: number;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -354,7 +596,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SupplierEnrichment"];
+          "application/json": components["schemas"]["SupplierCard"];
         };
       };
       /** @description Validation Error */
@@ -415,7 +657,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["LotResponse"][];
+          "application/json": components["schemas"]["LotListItem"][];
         };
       };
       /** @description Validation Error */
@@ -446,7 +688,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["LotResponse"];
+          "application/json": components["schemas"]["LotCard"];
         };
       };
       /** @description Validation Error */
@@ -469,7 +711,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["SupplierSearchRequest"];
+        "application/json": components["schemas"]["SearchRequest"];
       };
     };
     responses: {
@@ -479,7 +721,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SupplierSearchResponse"];
+          "application/json": components["schemas"]["SearchResponse"];
         };
       };
       /** @description Validation Error */

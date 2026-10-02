@@ -25,6 +25,11 @@ LANGUAGE sql IMMUTABLE AS $$
     FROM (SELECT replace(replace(replace(btrim(v), ' ', ''), chr(160), ''), ',', '.') AS x) s
 $$;
 
+CREATE OR REPLACE FUNCTION clean_date(v text) RETURNS date
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE WHEN btrim(v) ~ '^\d{4}-\d{2}-\d{2}' THEN left(btrim(v), 10)::date END
+$$;
+
 CREATE OR REPLACE FUNCTION clean_bool(v text) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
     SELECT CASE
@@ -74,6 +79,7 @@ $$;
 CREATE TABLE lots (
     lot_id          bigint NOT NULL,  -- key
     procedure_id    bigint,
+    publish_date    date,
     reqnum          text,            -- registry number, empty for some notices
     procedure_name  text,
     subject         text,            -- procurement subject

@@ -78,3 +78,16 @@ export function getSupplierEnrichment(inn: string, signal?: AbortSignal) {
     signal
   );
 }
+
+export const getSupplierCard = getSupplierEnrichment;
+
+export function getLot(lotId: number, signal?: AbortSignal) {
+  return request(
+    (requestSignal) =>
+      client.GET("/api/v1/lots/{lot_id}", {
+        params: { path: { lot_id: lotId } },
+        signal: requestSignal,
+      }),
+    signal
+  );
+}

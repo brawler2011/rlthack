@@ -15,48 +15,6 @@ from app.etl.sources import detect_sources, inspect_file
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 requires_db = pytest.mark.skipif(not TEST_DATABASE_URL, reason="TEST_DATABASE_URL is not set")
 
-# Notices: UTF-8, ';' delimiter. Lot 1 is repeated, lot 'abc' has a broken id.
-NOTICES = """\
-procedure_id;lot_id;start_price;reqnum;procedure_name;subject;is_smp;customer_inn;customer_kpp;is_eshop_or_aisgz
-10;1;1000.50;0172200004923000344;Поставка бумаги;Бумага А4;true;7814096706;781401001;АИС ГЗ
-11;2;2000;;Ремонт техники;Ремонт;false;;;Электронный магазин
-12;3;3000.00;0172200004923000345;Картриджи;Картриджи;false;7801140073;780101001;АИС ГЗ
-10;1;1000.50;0172200004923000344;Поставка бумаги;Бумага А4;true;7814096706;781401001;АИС ГЗ
-13;abc;10;;Мусор;Мусор;false;;;АИС ГЗ
-"""
-
-# TRU items: cp1251, ',' delimiter, a comma inside quotes, code 33.12.1 has no 'kind' level.
-ITEMS = """\
-lot_id,product_name,okpd2_code
-1,"Бумага, А4",17.12.14.110
-2,Ремонт оборудования,33.12.1
-3,Картридж,20.59.12.120
-3,Тонер,не код
-"""
-
-# Suppliers: UTF-8 with BOM. Pair (1, 7802587594) is repeated, the INN in exponent form is
-# garbage, lot 99 is missing from notices, 500100732259 is an individual without KPP.
-BIDS = """\
-lot_id,supplier_inn,supplier_kpp,is_winner
-1,7802587594,780201001,true
-1,7811383967,781101001,false
-1,7802587594,780201001,false
-2,7802587594,780201001,true
-3,7802587594,780201001,false
-3,500100732259,,true
-3,"6,362E+11",780601001,false
-99,7811383967,781101001,false
-"""
-
-
-@pytest.fixture
-def raw_dir(tmp_path):
-    (tmp_path / "Извещения.csv").write_text(NOTICES, encoding="utf-8")
-    (tmp_path / "ТРУ.csv").write_text(ITEMS, encoding="cp1251")
-    (tmp_path / "Поставщики.csv").write_text(BIDS, encoding="utf-8-sig")
-    (tmp_path / "readme.txt").write_text("not a CSV", encoding="utf-8")
-    return tmp_path
-
 
 def test_detect_sources(raw_dir):
     sources = detect_sources(raw_dir)
@@ -77,21 +35,11 @@ def test_missing_required_column(tmp_path):
 
 
 def test_missing_source(tmp_path):
-    (tmp_path / "bids.csv").write_text(BIDS, encoding="utf-8")
+    raw_dir = tmp_path
+    (raw_dir / "bids.csv").write_text("lot_id,supplier_inn,supplier_kpp,is_winner\n", "utf-8")
 
     with pytest.raises(FileNotFoundError, match="notices"):
-        detect_sources(tmp_path)
-
-
-@pytest.fixture
-def db(raw_dir):
-    with pipeline.connect(TEST_DATABASE_URL) as conn:
-        pipeline.run_sql_file(conn, "schema.sql")
-        pipeline.load_raw(conn, detect_sources(raw_dir))
-        pipeline.run_sql_file(conn, "clean.sql")
-        pipeline.run_sql_file(conn, "marts.sql")
-        conn.commit()
-        yield conn
+        detect_sources(raw_dir)
 
 
 def fetch(db, query):
@@ -104,6 +52,7 @@ def test_clean_tables(db):
     assert [lot["lot_id"] for lot in lots] == [1, 2, 3]
     assert lots[0]["reqnum"] == "0172200004923000344"  # leading zero kept
     assert lots[0]["is_smp"] is True
+    assert str(lots[0]["publish_date"]) == "2024-03-01"
     assert lots[1]["customer_inn"] is None and lots[1]["reqnum"] is None
 
     items = fetch(db, "SELECT * FROM lot_items ORDER BY lot_id, product_name")
@@ -130,7 +79,8 @@ def test_supplier_profile(db):
 
     main = profiles["7802587594"]
     assert (main["n_bids"], main["n_wins"]) == (3, 2)
-    assert main["win_rate"] == pytest.approx(2 / 3)
+    assert (main["n_contested_bids"], main["n_contested_wins"]) == (2, 1)  # lot 2 is uncontested
+    assert main["win_rate"] == pytest.approx(0.5)
     assert main["region_code"] == "78" and main["is_spb_lo"] is True
     assert float(main["won_amount"]) == 3000.50
     assert float(main["avg_won_price"]) == 1500.25

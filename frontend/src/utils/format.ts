@@ -10,9 +10,11 @@ export const roleNames: Record<SupplierRole, string> = {
   MANUFACTURER: "Производитель",
   DISTRIBUTOR: "Дистрибьютор",
   SUPPLIER: "Поставщик",
+  UNKNOWN: "Роль не определена",
 };
 
-export function money(value: number) {
+export function money(value: number | null) {
+  if (value === null) return "Нет данных";
   return new Intl.NumberFormat("ru-RU", {
     style: "currency",
     currency: "RUB",
@@ -24,8 +26,8 @@ export function number(value: number, maximumFractionDigits = 0) {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits }).format(value);
 }
 
-export function percent(value: number) {
-  return `${number(value * 100, 1)}%`;
+export function percent(value: number | null) {
+  return value === null ? "Нет данных" : `${number(value * 100, 1)}%`;
 }
 
 export function errorMessage(error: unknown) {
