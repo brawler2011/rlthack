@@ -39,6 +39,7 @@ MAX_HISTORIES = 4  # cached history snapshots (one per month of the lots looked 
 WARM_MONTHS = 3  # the latest months are prepared at startup: demo lots come from there
 MAX_EVIDENCE_LOTS = 5000
 EVIDENCE_PER_SUPPLIER = 3
+AUTO_RELEVANCE_THRESHOLD = 0.66
 
 COMPANIES_SQL = """
 SELECT inn, name, role, role_reason, okved_main, okved_main_name, region_code, msp_category,
@@ -132,6 +133,8 @@ class Engine:
         filters: SearchFilters,
         limit: int,
         new_limit: int,
+        *,
+        automatic: bool = False,
     ) -> SearchResponse:
         started = time.perf_counter()
         cutoff = month_start(query.day) if card.lot_id is not None else self.today
@@ -154,6 +157,7 @@ class Engine:
             i
             for i, inn in enumerate(inns)
             if self._passes(filters, companies.get(inn), stats, int(candidates[i]))
+            and (not automatic or relevance[i] >= AUTO_RELEVANCE_THRESHOLD)
         ][:limit]
 
         shown = [inns[i] for i in keep]
@@ -196,6 +200,9 @@ class Engine:
             )
 
         new_suppliers = self._new_suppliers(conn, snap, okpd2_codes, query.day, new_limit)
+        if automatic and new_suppliers:
+            threshold = max(s.score for s in new_suppliers) * AUTO_RELEVANCE_THRESHOLD
+            new_suppliers = [s for s in new_suppliers if s.score > 0 and s.score >= threshold]
         return SearchResponse(
             lot=card,
             items=items,

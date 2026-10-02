@@ -20,7 +20,7 @@ FROM lots WHERE {where} ORDER BY publish_date DESC, lot_id DESC LIMIT %(limit)s
 class SearchService:
     """Supplier matching for a lot, and the lots themselves."""
 
-    def search(self, conn, request: SearchRequest) -> SearchResponse:
+    def search(self, conn, request: SearchRequest, *, automatic: bool = False) -> SearchResponse:
         engine = engine_state.engine
         if engine is None:
             raise HTTPException(503, f"Модель ещё не готова: {engine_state.status}")
@@ -37,9 +37,16 @@ class SearchService:
                 actual_winners=[],
             )
             query = engine.new_lot_query(lot)
-        return engine.search(
-            conn, card, query, card.okpd2_codes, request.filters, request.limit, request.new_limit
+        arguments = (
+            conn,
+            card,
+            query,
+            card.okpd2_codes,
+            request.filters,
+            request.limit,
+            request.new_limit,
         )
+        return engine.search(*arguments, automatic=True) if automatic else engine.search(*arguments)
 
     def find_lots(self, conn, query: str, limit: int) -> list[LotListItem]:
         query = query.strip()

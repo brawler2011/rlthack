@@ -7,14 +7,16 @@ import type { SearchState } from "./components/ResultsPanel";
 import SupplierDialog from "./components/SupplierDialog";
 import { searchSuppliers } from "./services/api";
 import { errorMessage } from "./utils/format";
-import type { Procurement, SupplierItem } from "./types";
+import type { Procurement, SelectedSupplier } from "./types";
+import CsvPage from "./components/CsvPage";
+import HomePage from "./components/HomePage";
 import { toSearchLot } from "./utils/lot";
 
-export default function App() {
+function SingleLotPage() {
   const [filters, setFilters] = useState<Filters>({ ...emptyFilters });
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const [dirty, setDirty] = useState(false);
-  const [selected, setSelected] = useState<SupplierItem | null>(null);
+  const [selected, setSelected] = useState<SelectedSupplier | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
@@ -84,5 +86,38 @@ export default function App() {
         <SupplierDialog key={selected.inn} supplier={selected} onClose={() => setSelected(null)} />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  const page = path === "/single" ? "Подбор одного лота" : path === "/csv" ? "Подбор по CSV" : null;
+  return (
+    <>
+      <header className="site-header">
+        <a className="site-brand" href="/">
+          Подбор поставщиков<span>Закупки · Контрагенты · Обоснования</span>
+        </a>
+        {page && (
+          <nav aria-label="Навигация">
+            <a href="/">Все сценарии</a>
+            <span>/</span>
+            <span aria-current="page">{page}</span>
+          </nav>
+        )}
+      </header>
+      {path === "/" ? (
+        <HomePage />
+      ) : path === "/single" ? (
+        <SingleLotPage />
+      ) : path === "/csv" ? (
+        <CsvPage />
+      ) : (
+        <main className="scenario-page">
+          <h1>Страница не найдена</h1>
+          <a href="/">На главную</a>
+        </main>
+      )}
+    </>
   );
 }

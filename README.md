@@ -23,9 +23,13 @@ Search, ranking, and verification service for relevant suppliers, manufacturers,
    * **Explainable AI (XAI):** Feature contribution computation via SHAP values with natural language justifications for top placement.
 
 3. **Web Interface:**
+   * `/`: two navigation cards for single-lot matching and CSV batch matching.
+   * `/single`: the existing procurement search and manual entry flow.
+   * `/csv`: upload raw notices and product items CSVs, then expand procurement cards and supplier details.
    * Search / select procurement notice from database or manual entry of new lot parameters.
    * Interactive filters by counterparty roles, region (Saint Petersburg / Leningrad Region), SME (MSP) status, and WinRate.
    * Detailed XAI card ("Why Recommended") with SHAP feature impact visualization.
+   * Real-winner badges, new SME registry companies with reasons, and similar historical lots as evidence.
    * Background worker: automated monitoring and batch counterparty matching for newly published notices.
 
 ---
@@ -43,6 +47,23 @@ task demo       # API http://localhost:8000 (/docs) + UI http://localhost:5173
 
 The API is up at once; the matching engine loads in the background for about a minute —
 `GET /api/v1/health` shows `"engine": "ready"` when search works.
+
+CSV matching uses `POST /api/v1/batch/csv` with two multipart files: `notices` and `items`.
+Use the columns from `data/Тестовые данные`: notices are joined to product items by `lot_id`.
+UTF-8 (with or without BOM), Windows-1251, semicolon and comma separators are supported.
+Limits: 2 MiB per file, 100 procurements and 5,000 product rows. Both files are fully validated
+before matching starts; invalid rows, duplicate notices, orphan items and procurements without
+items reject the entire run. Uploaded procurements use their CSV fields as new queries without
+resolving their IDs in the database. Uploads and run history are not persisted.
+
+The endpoint returns all procurement results, explanations, evidence and company cards in one
+JSON response. Company cards are shared by INN within the response. Expanding a CSV result
+does not make additional API requests. Recommendation counts are automatic: existing suppliers
+must reach 0.66 on the ranker's normalized relative score; registry companies must reach 66%
+of the strongest positive registry score. Internal response caps are 100 existing and 50 registry
+companies per procurement. These scores are not calibrated probabilities. The single-lot flow
+retains its existing limits and filters. Its historical procurements can show real-winner badges;
+CSV uploads do not look up historical winners.
 
 | Step of `task pipeline` | Takes | Produces |
 | :--- | :--- | :--- |

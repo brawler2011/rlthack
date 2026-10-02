@@ -10,7 +10,13 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { money, number, percent, roleNames } from "../utils/format";
-import type { Procurement, SearchSuppliersResponse, SupplierItem } from "../types";
+import type {
+  Procurement,
+  SearchSuppliersResponse,
+  SupplierItem,
+  SelectedSupplier,
+} from "../types";
+import NewCompanies from "./NewCompanies";
 import type { Filters } from "../utils/filters";
 
 export type SearchState =
@@ -22,7 +28,7 @@ export type SearchState =
 interface Props {
   state: SearchState;
   dirty: boolean;
-  onSelect: (supplier: SupplierItem) => void;
+  onSelect: (supplier: SelectedSupplier) => void;
 }
 
 function MatchingIllustration() {
@@ -65,7 +71,7 @@ function MatchingIllustration() {
   );
 }
 
-function SupplierRow({
+export function SupplierRow({
   supplier,
   index,
   onSelect,
@@ -95,6 +101,7 @@ function SupplierRow({
           </span>
           {supplier.is_smp && <span className="small-badge">МСП</span>}
           {supplier.is_spb_lo && <span className="small-badge">СПб / ЛО</span>}
+          {supplier.is_actual_winner && <span className="winner-badge">Реальный победитель</span>}
         </div>
         <div className="supplier-stats">
           <span>
@@ -126,7 +133,9 @@ function SupplierRow({
 }
 
 export default function ResultsPanel({ state, dirty, onSelect }: Props) {
-  const found = state.status === "success" && state.response.items.length > 0;
+  const found =
+    state.status === "success" &&
+    (state.response.items.length > 0 || state.response.new_suppliers.length > 0);
   return (
     <section
       id="results-panel"
@@ -267,6 +276,7 @@ export default function ResultsPanel({ state, dirty, onSelect }: Props) {
                 </div>
               </>
             )}
+            <NewCompanies suppliers={state.response.new_suppliers} onSelect={onSelect} />
           </>
         )}
       </div>
