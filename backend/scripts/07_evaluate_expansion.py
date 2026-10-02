@@ -20,6 +20,7 @@ from app.ml.expansion import (  # noqa: E402
     expand,
     license_affinity_from_db,
     load_registry,
+    profile_weights_from_db,
 )
 
 KS = (1, 5, 10, 20, 50, 100)
@@ -45,6 +46,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cutoff", type=date.fromisoformat, default=date(2025, 10, 1))
     parser.add_argument("--no-licenses", action="store_true", help="OKVED fit only")
+    parser.add_argument("--no-profile", action="store_true", help="no company profile weights")
     args = parser.parse_args()
 
     with pipeline.connect() as conn, pipeline.timed("[07] Reading data"):
@@ -55,6 +57,7 @@ def main():
         registry = load_registry(conn)
         affinity = affinity_from_db(conn, args.cutoff)
         license_fit = license_affinity_from_db(conn, args.cutoff)
+        weights = None if args.no_profile else profile_weights_from_db(conn, registry, args.cutoff)
     licenses = None if args.no_licenses else license_fit
 
     exclude = np.isin(registry.inns, list(known))
@@ -73,7 +76,7 @@ def main():
         group_ranks.append(
             min((i + 1 for i, g in enumerate(groups) if g in winner_groups), default=None)
         )
-        order, _, _ = expand(registry, affinity, lot_codes, exclude, day, None, licenses)
+        order, _, _ = expand(registry, affinity, lot_codes, exclude, day, None, licenses, weights)
         pool_sizes.append(len(order))
         licensed.append(bool(license_fit.for_codes(lot_codes)))
         hits = np.flatnonzero(np.isin(order, rows))

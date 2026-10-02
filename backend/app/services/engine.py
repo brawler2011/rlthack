@@ -21,6 +21,7 @@ from app.ml.expansion import (
     expand,
     license_affinity_from_db,
     load_registry,
+    profile_weights_from_db,
 )
 from app.ml.explainer import Facts, explain
 from app.ml.semantic_retriever import LotEmbeddings, encode, load_model
@@ -82,6 +83,7 @@ class Engine:
             self.registry = load_registry(conn)
             self.affinity = affinity_from_db(conn)
             self.licenses = license_affinity_from_db(conn)
+            self.weights = profile_weights_from_db(conn, self.registry)
         self.model = ranker.load(settings.catboost_model_path)
         if list(self.model.feature_names_) != list(FEATURES):
             raise RuntimeError("The ranker was trained on other features: rerun 05_train_ranker")
@@ -297,7 +299,7 @@ class Engine:
         if not limit or not codes:
             return []
         rows, scores, reasons = expand(
-            self.registry, self.affinity, codes, snap.known, day, limit, self.licenses
+            self.registry, self.affinity, codes, snap.known, day, limit, self.licenses, self.weights
         )
         inns = self.registry.inns[rows].tolist()
         companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (inns,)).fetchall()}
