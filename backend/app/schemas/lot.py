@@ -1,17 +1,19 @@
-from pydantic import BaseModel
+from pydantic import Field
+
+from app.schemas.base import ContractModel
 
 
-class LotBase(BaseModel):
+class LotBase(ContractModel):
     procedure_name: str
     subject: str
-    start_price: float
+    start_price: float = Field(ge=0)
     okpd2_code: str
-    is_smp: bool = False
-    customer_inn: str | None = None
-    customer_kpp: str | None = None
+    is_smp: bool
+    customer_inn: str | None
+    customer_kpp: str | None
 
 
 class LotResponse(LotBase):
-    lot_id: int | None = None
-    publish_date: str | None = None
-    procedure_id: int | None = None
+    lot_id: int | None
+    publish_date: str | None
+    procedure_id: int | None

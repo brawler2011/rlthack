@@ -1,16 +1,20 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.config import settings
-from app.core.database import close_db, open_db
+from app.schemas.errors import ValidationErrorResponse, ValidationIssue
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.core.database import close_db, open_db
+
     # PostgreSQL connection pool
     open_db()
     yield
@@ -24,6 +28,18 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    response = ValidationErrorResponse(
+        detail=[
+            ValidationIssue(loc=list(error["loc"]), msg=error["msg"], type=error["type"])
+            for error in exc.errors()
+        ]
+    )
+    return JSONResponse(status_code=422, content=response.model_dump(mode="json"))
+
 
 # CORS
 app.add_middleware(

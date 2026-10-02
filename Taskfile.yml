@@ -88,6 +88,13 @@ tasks:
     desc: Run all tests
     cmds:
       - task: test:backend
+      - task: test:frontend
+
+  test:frontend:
+    desc: Run frontend API transport tests
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - bun run test
 
   test:backend:
     desc: Run backend tests (pytest)
@@ -98,10 +105,23 @@ tasks:
   check:
     desc: Run all CI checks locally (linters, format checks, tests, build)
     cmds:
+      - task: contracts:check
       - task: lint
       - task: format:check
       - task: test
       - task: build
+
+  gen:
+    desc: Export FastAPI OpenAPI and generate frontend TypeScript contracts
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python -m scripts.contracts
+
+  contracts:check:
+    desc: Check that OpenAPI and generated frontend contracts are up to date
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - poetry run python -m scripts.contracts --check
 
   build:
     desc: Build production frontend bundle

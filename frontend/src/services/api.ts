@@ -1,35 +1,37 @@
-import type {
-  SearchSuppliersRequest,
-  SearchSuppliersResponse,
-  LotItem,
-  SupplierEnrichment,
-} from "../types";
+import { createApiClient } from "../contracts/client";
+import type { SearchSuppliersRequest } from "../types";
 
-const API_BASE = "/api/v1";
+const client = createApiClient();
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+type ApiResult<T> = { data: T; response: Response } | { error: unknown; response: Response };
+
+function errorDetail(error: unknown): string | null {
+  if (typeof error === "object" && error !== null && "detail" in error) {
+    return typeof error.detail === "string" ? error.detail : null;
+  }
+  return null;
+}
+
+async function request<T>(
+  send: (signal: AbortSignal) => Promise<ApiResult<T>>,
+  signal?: AbortSignal
+): Promise<T> {
   const controller = new AbortController();
   const cancel = () => controller.abort();
-  const timeout = window.setTimeout(cancel, 30_000);
-  options.signal?.addEventListener("abort", cancel, { once: true });
-  if (options.signal?.aborted) controller.abort();
+  const timeout = globalThis.setTimeout(cancel, 30_000);
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) controller.abort();
 
   try {
-    const response = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      const detail = typeof body?.detail === "string" ? body.detail : null;
-      if (response.status === 422) {
-        throw new Error(detail ?? "Проверьте параметры закупки: сервер не принял запрос.");
-      }
-      throw new Error(detail ?? "Сервис временно недоступен. Попробуйте ещё раз.");
+    const result = await send(controller.signal);
+    if ("data" in result) return result.data;
+    const detail = errorDetail(result.error);
+    if (result.response.status === 422) {
+      throw new Error(detail ?? "Проверьте параметры закупки: сервер не принял запрос.");
     }
-    return await response.json();
+    throw new Error(detail ?? "Сервис временно недоступен. Попробуйте ещё раз.");
   } catch (error) {
-    if (options.signal?.aborted) throw error;
+    if (signal?.aborted) throw error;
     if (controller.signal.aborted) {
       throw Object.assign(new Error("Сервис не ответил за 30 секунд. Попробуйте ещё раз."), {
         cause: error,
@@ -43,26 +45,36 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     throw error;
   } finally {
-    window.clearTimeout(timeout);
-    options.signal?.removeEventListener("abort", cancel);
+    globalThis.clearTimeout(timeout);
+    signal?.removeEventListener("abort", cancel);
   }
 }
 
-export function searchSuppliers(req: SearchSuppliersRequest, signal?: AbortSignal) {
-  return request<SearchSuppliersResponse>("/suppliers/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-    signal,
-  });
+export function searchSuppliers(body: SearchSuppliersRequest, signal?: AbortSignal) {
+  return request(
+    (requestSignal) => client.POST("/api/v1/suppliers/search", { body, signal: requestSignal }),
+    signal
+  );
 }
 
 export function searchLots(query: string, signal?: AbortSignal) {
-  return request<LotItem[]>(`/lots/search?query=${encodeURIComponent(query)}&limit=20`, {
-    signal,
-  });
+  return request(
+    (requestSignal) =>
+      client.GET("/api/v1/lots/search", {
+        params: { query: { query, limit: 20 } },
+        signal: requestSignal,
+      }),
+    signal
+  );
 }
 
 export function getSupplierEnrichment(inn: string, signal?: AbortSignal) {
-  return request<SupplierEnrichment>(`/enrichment/${encodeURIComponent(inn)}`, { signal });
+  return request(
+    (requestSignal) =>
+      client.GET("/api/v1/enrichment/{inn}", {
+        params: { path: { inn } },
+        signal: requestSignal,
+      }),
+    signal
+  );
 }

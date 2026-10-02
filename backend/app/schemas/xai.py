@@ -1,13 +1,15 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from app.schemas.base import ContractModel
 
 
-class XaiFactor(BaseModel):
+class XaiFactor(ContractModel):
     factor_name: str
     shap_value: float
     description: str
 
 
-class XaiReport(BaseModel):
+class XaiReport(ContractModel):
     summary: str
     factors: list[XaiFactor]
-    recommendation_level: str  # HIGH, MEDIUM, LOW
+    recommendation_level: Literal["HIGH", "MEDIUM", "LOW"]

@@ -10,14 +10,14 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { money, number, percent, roleNames } from "../utils/format";
-import type { LotItem, SearchSuppliersResponse, SupplierItem } from "../types";
+import type { LotInput, SearchSuppliersResponse, SupplierItem } from "../types";
 import type { Filters } from "../utils/filters";
 
 export type SearchState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "success"; response: SearchSuppliersResponse; lot: LotItem; filters: Filters };
+  | { status: "success"; response: SearchSuppliersResponse; lot: LotInput; filters: Filters };
 
 interface Props {
   state: SearchState;

@@ -1,0 +1,825 @@
+{
+  "components": {
+    "schemas": {
+      "BatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "matched_lots": {
+            "items": {
+              "$ref": "#/components/schemas/MatchedLot"
+            },
+            "title": "Matched Lots",
+            "type": "array"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "matched_lots"
+        ],
+        "title": "BatchResponse",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "service": {
+            "const": "rlthack-recsys-backend",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "LotBase": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Inn"
+          },
+          "customer_kpp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Kpp"
+          },
+          "is_smp": {
+            "title": "Is Smp",
+            "type": "boolean"
+          },
+          "okpd2_code": {
+            "title": "Okpd2 Code",
+            "type": "string"
+          },
+          "procedure_name": {
+            "title": "Procedure Name",
+            "type": "string"
+          },
+          "start_price": {
+            "minimum": 0.0,
+            "title": "Start Price",
+            "type": "number"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "procedure_name",
+          "subject",
+          "start_price",
+          "okpd2_code",
+          "is_smp",
+          "customer_inn",
+          "customer_kpp"
+        ],
+        "title": "LotBase",
+        "type": "object"
+      },
+      "LotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Inn"
+          },
+          "customer_kpp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Kpp"
+          },
+          "is_smp": {
+            "title": "Is Smp",
+            "type": "boolean"
+          },
+          "lot_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Id"
+          },
+          "okpd2_code": {
+            "title": "Okpd2 Code",
+            "type": "string"
+          },
+          "procedure_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure Id"
+          },
+          "procedure_name": {
+            "title": "Procedure Name",
+            "type": "string"
+          },
+          "publish_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Date"
+          },
+          "start_price": {
+            "minimum": 0.0,
+            "title": "Start Price",
+            "type": "number"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "procedure_name",
+          "subject",
+          "start_price",
+          "okpd2_code",
+          "is_smp",
+          "customer_inn",
+          "customer_kpp",
+          "lot_id",
+          "publish_date",
+          "procedure_id"
+        ],
+        "title": "LotResponse",
+        "type": "object"
+      },
+      "MatchedLot": {
+        "additionalProperties": false,
+        "properties": {
+          "lot": {
+            "$ref": "#/components/schemas/LotResponse"
+          },
+          "recommendations": {
+            "$ref": "#/components/schemas/SupplierSearchResponse"
+          }
+        },
+        "required": [
+          "lot",
+          "recommendations"
+        ],
+        "title": "MatchedLot",
+        "type": "object"
+      },
+      "SupplierEnrichment": {
+        "additionalProperties": false,
+        "properties": {
+          "inn": {
+            "title": "Inn",
+            "type": "string"
+          },
+          "is_gisp_manufacturer": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Gisp Manufacturer"
+          },
+          "okved_main": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Okved Main"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "MANUFACTURER",
+                  "DISTRIBUTOR",
+                  "SUPPLIER"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "inn",
+          "role",
+          "is_gisp_manufacturer",
+          "okved_main",
+          "status"
+        ],
+        "title": "SupplierEnrichment",
+        "type": "object"
+      },
+      "SupplierProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "avg_contract_price": {
+            "title": "Avg Contract Price",
+            "type": "number"
+          },
+          "contracts_count": {
+            "title": "Contracts Count",
+            "type": "integer"
+          },
+          "inn": {
+            "title": "Inn",
+            "type": "string"
+          },
+          "is_smp": {
+            "title": "Is Smp",
+            "type": "boolean"
+          },
+          "is_spb_lo": {
+            "title": "Is Spb Lo",
+            "type": "boolean"
+          },
+          "kpp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpp"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "enum": [
+              "MANUFACTURER",
+              "DISTRIBUTOR",
+              "SUPPLIER"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "role_display": {
+            "title": "Role Display",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "number"
+          },
+          "xai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XaiReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "inn",
+          "kpp",
+          "name",
+          "role",
+          "role_display",
+          "score",
+          "win_rate",
+          "contracts_count",
+          "avg_contract_price",
+          "is_spb_lo",
+          "is_smp",
+          "xai"
+        ],
+        "title": "SupplierProfile",
+        "type": "object"
+      },
+      "SupplierSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "exclusiveMinimum": 0.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "lot": {
+            "$ref": "#/components/schemas/LotBase"
+          },
+          "min_win_rate": {
+            "description": "Zero disables the win-rate filter.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Win Rate",
+            "type": "number"
+          },
+          "only_smp": {
+            "title": "Only Smp",
+            "type": "boolean"
+          },
+          "only_spb_lo": {
+            "title": "Only Spb Lo",
+            "type": "boolean"
+          },
+          "role_filter": {
+            "description": "Empty list matches all roles.",
+            "items": {
+              "enum": [
+                "MANUFACTURER",
+                "DISTRIBUTOR",
+                "SUPPLIER"
+              ],
+              "type": "string"
+            },
+            "title": "Role Filter",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lot",
+          "role_filter",
+          "only_spb_lo",
+          "only_smp",
+          "min_win_rate",
+          "limit"
+        ],
+        "title": "SupplierSearchRequest",
+        "type": "object"
+      },
+      "SupplierSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "inference_time_ms": {
+            "title": "Inference Time Ms",
+            "type": "number"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SupplierProfile"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "items",
+          "inference_time_ms"
+        ],
+        "title": "SupplierSearchResponse",
+        "type": "object"
+      },
+      "ValidationErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ValidationErrorResponse",
+        "type": "object"
+      },
+      "ValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationIssue",
+        "type": "object"
+      },
+      "XaiFactor": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "factor_name": {
+            "title": "Factor Name",
+            "type": "string"
+          },
+          "shap_value": {
+            "title": "Shap Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "factor_name",
+          "shap_value",
+          "description"
+        ],
+        "title": "XaiFactor",
+        "type": "object"
+      },
+      "XaiReport": {
+        "additionalProperties": false,
+        "properties": {
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/XaiFactor"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
+          "recommendation_level": {
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ],
+            "title": "Recommendation Level",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "factors",
+          "recommendation_level"
+        ],
+        "title": "XaiReport",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Recommendation service and Explainable AI (XAI) API for counterparty matching",
+    "title": "Roseltorg • Intelligent Counterparty Selection Service AIS GZ",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/batch/simulate": {
+      "post": {
+        "description": "Simulate background worker matching suppliers to new procurement notices.",
+        "operationId": "simulate_batch",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate Batch Recommendations",
+        "tags": [
+          "Batch"
+        ]
+      }
+    },
+    "/api/v1/enrichment/{inn}": {
+      "get": {
+        "description": "Detailed company profile: OKVED, Minpromtorg registries, SME (MSP) status.",
+        "operationId": "get_enrichment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inn",
+            "required": true,
+            "schema": {
+              "title": "Inn",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierEnrichment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Enrichment",
+        "tags": [
+          "Enrichment"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health Check",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/lots/search": {
+      "get": {
+        "description": "Search historical lots and procurement notices for 2024-2025.",
+        "operationId": "search_lots",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "exclusiveMinimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LotResponse"
+                  },
+                  "title": "Response Search Lots",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Lots",
+        "tags": [
+          "Lots"
+        ]
+      }
+    },
+    "/api/v1/lots/{lot_id}": {
+      "get": {
+        "description": "Get detailed information for a specific lot.",
+        "operationId": "get_lot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lot_id",
+            "required": true,
+            "schema": {
+              "title": "Lot Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Lot",
+        "tags": [
+          "Lots"
+        ]
+      }
+    },
+    "/api/v1/suppliers/search": {
+      "post": {
+        "description": "Search and rank suppliers matching procurement parameters.",
+        "operationId": "search_suppliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplierSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Suppliers",
+        "tags": [
+          "Suppliers"
+        ]
+      }
+    }
+  }
+}

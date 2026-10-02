@@ -59,6 +59,18 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
 
+      - name: Set up Bun for contract generation
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+
+      - name: Install contract generator
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Check generated contracts
+        run: poetry run python -m scripts.contracts --check
+
       - name: Run Ruff linter
         run: poetry run ruff check .
 
@@ -102,3 +114,6 @@ jobs:
 
       - name: Run TypeCheck & Build
         run: bun run build
+
+      - name: Run API transport tests
+        run: bun run test

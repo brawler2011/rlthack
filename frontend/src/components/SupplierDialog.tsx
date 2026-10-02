@@ -37,7 +37,7 @@ const factorNames: Record<string, string> = {
   okpd2_match: "Опыт по коду ОКПД2",
 };
 
-function statusLabel(status: string | null | undefined) {
+function statusLabel(status: SupplierEnrichment["status"]) {
   if (!status) return "Нет данных";
   return (
     (

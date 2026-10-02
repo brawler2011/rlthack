@@ -1,17 +1,18 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import Field
 
+from app.schemas.base import ContractModel
 from app.schemas.lot import LotBase
 from app.schemas.xai import XaiReport
 
 RoleType = Literal["MANUFACTURER", "DISTRIBUTOR", "SUPPLIER"]
 
 
-class SupplierProfile(BaseModel):
+class SupplierProfile(ContractModel):
     inn: str
-    kpp: str
-    name: str | None = None
+    kpp: str | None
+    name: str | None
     role: RoleType
     role_display: str
     score: float
@@ -20,19 +21,19 @@ class SupplierProfile(BaseModel):
     avg_contract_price: float
     is_spb_lo: bool
     is_smp: bool
-    xai: XaiReport | None = None
+    xai: XaiReport | None
 
 
-class SupplierSearchRequest(BaseModel):
+class SupplierSearchRequest(ContractModel):
     lot: LotBase
-    role_filter: list[RoleType] | None = None
-    only_spb_lo: bool = False
-    only_smp: bool = False
-    min_win_rate: float | None = None
-    limit: int = 20
+    role_filter: list[RoleType] = Field(description="Empty list matches all roles.")
+    only_spb_lo: bool
+    only_smp: bool
+    min_win_rate: float = Field(ge=0, le=1, description="Zero disables the win-rate filter.")
+    limit: int = Field(gt=0)
 
 
-class SupplierSearchResponse(BaseModel):
+class SupplierSearchResponse(ContractModel):
     total: int
     items: list[SupplierProfile]
     inference_time_ms: float

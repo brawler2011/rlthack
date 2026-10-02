@@ -12,14 +12,14 @@ import {
 } from "lucide-react";
 import { searchLots } from "../services/api";
 import { errorMessage, money, roles } from "../utils/format";
-import type { LotItem } from "../types";
+import type { LotInput, LotItem } from "../types";
 import { emptyFilters } from "../utils/filters";
 import type { Filters } from "../utils/filters";
 
 interface Props {
   filters: Filters;
   onFiltersChange: (filters: Filters) => void;
-  onSearch: (lot: LotItem) => void;
+  onSearch: (lot: LotInput) => void;
   onDraftChange: () => void;
   onCancel: () => void;
   loading: boolean;
@@ -180,6 +180,8 @@ export default function ProcurementForm({
       start_price: Number(price),
       okpd2_code: code.trim(),
       is_smp: smp,
+      customer_inn: null,
+      customer_kpp: null,
     });
   }
 
