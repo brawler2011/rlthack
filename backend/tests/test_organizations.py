@@ -4,6 +4,7 @@ import csv
 import importlib
 import zipfile
 from contextlib import nullcontext
+from decimal import Decimal
 from types import SimpleNamespace
 
 organizations = importlib.import_module("scripts.09_organizations")
@@ -79,7 +80,7 @@ def test_bulk_build_keeps_existing_metadata_and_adds_a_registry_company_without_
     organizations.build(path, tmp_path, bulk_only=True)
     with path.open(encoding="utf-8") as f:
         rows = {row["inn"]: row for row in csv.DictReader(f, delimiter=";")}
-    assert rows[INN]["revenue"] == "1000000.0"
+    assert Decimal(rows[INN]["revenue"]) == 1000000
     assert rows[INN]["source"] == "fns"
     assert rows[INN]["registered"] == ""
     assert rows[OTHER]["name"] == "Existing supplier"
@@ -134,5 +135,22 @@ def test_resource_refresh_needs_no_registry_or_database_and_preserves_metadata(
     with path.open(encoding="utf-8") as f:
         row = next(csv.DictReader(f, delimiter=";"))
     assert row["name"] == "Existing" and row["source"] == "egrul"
-    assert row["tax_debt"] == "70000.0" and row["tax_debt_as_of"] == "2026-09-01"
+    assert Decimal(row["tax_debt"]) == 70000 and row["tax_debt_as_of"] == "2026-09-01"
     assert row["refreshed_at"]
+
+
+def test_financial_sums_keep_exact_kopecks(tmp_path):
+    for dataset, attribute, field in (
+        ("paytax", "СумУплНал", "taxes_paid"),
+        ("debtam", "ОбщСумНедоим", "tax_debt"),
+        ("taxoffence", "СумШтраф", "tax_fines"),
+    ):
+        archive(
+            tmp_path,
+            dataset,
+            f'<Документ><СведНП ИННЮЛ="{INN}"/>'
+            f'<Суммы {attribute}="0.10"/><Суммы {attribute}="0.20"/></Документ>',
+        )
+    row = organizations.fns_open_data(tmp_path, {INN})[INN]
+    for field in ("taxes_paid", "tax_debt", "tax_fines"):
+        assert str(row[field]) == "0.30"
