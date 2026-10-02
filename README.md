@@ -73,6 +73,7 @@ CSV uploads do not look up historical winners.
 | `04_build_embeddings` | ~16 min on 4 CPU cores | vectors of 414k unique lot texts |
 | `05_train_ranker` | ~11 min | CatBoost ranker |
 | `08_predict` | ~0.2–0.5 s per lot | suppliers for lots from a notices CSV and an items CSV, written to a CSV (`task predict -- --help`) |
+| `09_organizations` | seconds | names of suppliers outside the SME registry (large companies, state institutions) from EGRUL, `task organizations`; `--build` looks them up again |
 
 `docker compose up --build` builds the all-in-one image (API + UI on :8000) and mounts `data/` and
 `backend/models/`, so run `task pipeline` first. The image pulls PyTorch and is large.

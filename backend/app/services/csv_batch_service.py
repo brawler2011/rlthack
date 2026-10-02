@@ -152,7 +152,9 @@ class CsvBatchService:
         uploaded, total_items = parse_uploads(notices, items)
         results = []
         cards = {}
-        filters = SearchFilters(roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0)
+        filters = SearchFilters(
+            roles=[], only_spb_lo=False, only_smp=False, min_win_rate=0, only_reliable=False
+        )
         for lot_id, entry in uploaded.items():
             # Always match uploaded fields as a new query; never resolve the ID in the database.
             request = SearchRequest(

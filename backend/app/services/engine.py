@@ -34,6 +34,13 @@ from app.schemas.supplier import (
     SupplierRecommendation,
 )
 from app.schemas.xai import EvidenceLot
+from app.services.trust import (
+    HAS_TABLE_SQL,
+    is_reliable,
+    role_from_okved,
+    trust_rows,
+    warnings,
+)
 
 MAX_HISTORIES = 4  # cached history snapshots (one per month of the lots looked at)
 WARM_MONTHS = 3  # the latest months are prepared at startup: demo lots come from there
@@ -75,6 +82,8 @@ class Snapshot:
 
 
 class Engine:
+    has_organizations = False  # set on load: the organizations table exists
+
     def __init__(self):
         started = time.perf_counter()
         self.emb = LotEmbeddings.load(settings.embeddings_dir)
@@ -83,6 +92,8 @@ class Engine:
             self.registry = load_registry(conn)
             self.affinity = affinity_from_db(conn)
             self.licenses = license_affinity_from_db(conn)
+            # Names of suppliers outside the SME registry, if 09_organizations was loaded.
+            self.has_organizations = bool(conn.execute(HAS_TABLE_SQL).fetchone()[0])
         self.model = ranker.load(settings.catboost_model_path)
         if list(self.model.feature_names_) != list(FEATURES):
             raise RuntimeError("The ranker was trained on other features: rerun 05_train_ranker")
@@ -152,11 +163,13 @@ class Engine:
 
         inns = hist.inns[candidates].tolist()
         companies = {r["inn"]: r for r in conn.execute(COMPANIES_SQL, (inns,)).fetchall()}
+        trust = trust_rows(conn, inns) if self.has_organizations else {}
         stats = hist.stats
         keep = [
             i
             for i, inn in enumerate(inns)
             if self._passes(filters, companies.get(inn), stats, int(candidates[i]))
+            and (not filters.only_reliable or is_reliable(trust.get(inn), card.start_price))
             and (not automatic or relevance[i] >= AUTO_RELEVANCE_THRESHOLD)
         ][:limit]
 
@@ -177,15 +190,18 @@ class Engine:
             facts.repeat_days = values["cust_days_since_win"]
             facts.days_since_bid = values["days_since_bid"]
             facts.active_bids = round(float(np.expm1(values["log_active_bids"])))
-            role = company.get("role") or "UNKNOWN"
+            org = trust.get(inn) or {}
+            role, role_reason = company.get("role"), company.get("role_reason")
+            if role is None:  # outside the SME registry: OKVED from the statements, if known
+                role, role_reason = role_from_okved(org.get("okved"), org.get("name"))
             items.append(
                 SupplierRecommendation(
                     rank=rank,
                     inn=inn,
-                    name=company.get("name"),
+                    name=company.get("name") or org.get("name"),
                     role=role,
                     role_display=ROLE_DISPLAY[role],
-                    role_reason=company.get("role_reason"),
+                    role_reason=role_reason,
                     score=round(float(relevance[i]), 3),
                     win_rate=facts.win_rate,
                     n_bids=facts.bids,
@@ -196,6 +212,7 @@ class Engine:
                     is_smp=bool(company) or None,
                     is_actual_winner=inn in winners,
                     explanation=explain(shap[rank - 1], facts, float(relevance[i])),
+                    warnings=warnings(org, card.start_price),
                 )
             )
 

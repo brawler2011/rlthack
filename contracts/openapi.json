@@ -93,6 +93,114 @@
         "title": "Body_match_csv_batch",
         "type": "object"
       },
+      "CompanyTrust": {
+        "additionalProperties": false,
+        "description": "Open FNS data: accounting statements, taxes, EGRUL.",
+        "properties": {
+          "expenses": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expenses for the last year, RUB",
+            "title": "Expenses"
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "registered": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registered"
+          },
+          "revenue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Income for the last year, RUB",
+            "title": "Revenue"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ACTIVE, INACTIVE, LIQUIDATION_STAGE, ... from the statements registry",
+            "title": "Status"
+          },
+          "tax_debt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tax arrears, penalties and fines, RUB",
+            "title": "Tax Debt"
+          },
+          "taxes_paid": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Taxes and contributions paid, RUB",
+            "title": "Taxes Paid"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revenue",
+          "expenses",
+          "taxes_paid",
+          "tax_debt",
+          "headcount",
+          "registered",
+          "status",
+          "warnings"
+        ],
+        "title": "CompanyTrust",
+        "type": "object"
+      },
       "CsvBatchErrorResponse": {
         "additionalProperties": false,
         "properties": {
@@ -773,6 +881,11 @@
             "title": "Min Win Rate",
             "type": "number"
           },
+          "only_reliable": {
+            "description": "Skip companies that are liquidated, owe taxes or have a revenue below the lot's initial price (open FNS data)",
+            "title": "Only Reliable",
+            "type": "boolean"
+          },
           "only_smp": {
             "title": "Only Smp",
             "type": "boolean"
@@ -800,7 +913,8 @@
           "roles",
           "only_spb_lo",
           "only_smp",
-          "min_win_rate"
+          "min_win_rate",
+          "only_reliable"
         ],
         "title": "SearchFilters",
         "type": "object"
@@ -1063,6 +1177,17 @@
             "title": "Top Okpd2",
             "type": "array"
           },
+          "trust": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompanyTrust"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None without open FNS data"
+          },
           "win_rate": {
             "anyOf": [
               {
@@ -1095,7 +1220,8 @@
           "avg_won_price",
           "n_customers",
           "top_okpd2",
-          "recent_lots"
+          "recent_lots",
+          "trust"
         ],
         "title": "SupplierCard",
         "type": "object"
@@ -1206,6 +1332,14 @@
             "title": "Score",
             "type": "number"
           },
+          "warnings": {
+            "description": "Reliability warnings: tax debt, loss, revenue vs. the lot price",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
           "win_rate": {
             "anyOf": [
               {
@@ -1235,7 +1369,8 @@
           "is_spb_lo",
           "is_smp",
           "is_actual_winner",
-          "explanation"
+          "explanation",
+          "warnings"
         ],
         "title": "SupplierRecommendation",
         "type": "object"
