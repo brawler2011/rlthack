@@ -30,6 +30,10 @@ NEWCOMER_DAYS = 91  # the profile weights are learned on first wins in this wind
 PROFILE_PSEUDO = 2000  # smoothing: each profile starts as this many average companies
 MIN_PROFILE_LIFT = 1.5  # the reason names the profile from this weight
 OLD_DAYS = 5 * 365
+# New companies come from Saint Petersburg and Leningrad Region. Companies of other regions are
+# in the table only because they bid somewhere in the data: in an evaluation they would be
+# future bidders, a leak; in production they are all known already.
+LOCAL_REGIONS = ("78", "47")
 STAFF_BOUNDS = (1, 5, 20)  # staff buckets 0, 1-4, 5-19, 20+
 SOLE_TRADER = 9  # their staff is not published
 CATEGORIES = {1: "микропредприятие", 2: "малое предприятие", 3: "среднее предприятие"}
@@ -162,6 +166,7 @@ class Registry:
     since_day: np.ndarray  # in the registry since, days since 1970-01-01
     prior: np.ndarray  # in [0, 1): orders companies with equal scores
     profile: np.ndarray  # category * 100 + staff bucket * 10 + in Saint Petersburg
+    local: np.ndarray  # registered in LOCAL_REGIONS
     by_main: dict[str, np.ndarray]  # OKVED group -> rows
     by_extra: dict[str, np.ndarray]
     by_product: dict[str, np.ndarray]  # product code prefix (XX.XX or XX.XX.XX) -> rows
@@ -211,6 +216,7 @@ def load_registry(conn) -> Registry:
         since_day=since,
         prior=np.clip(prior, 0, 0.999),
         profile=category.astype(np.int64) * 100 + staff * 10 + spb.astype(np.int64),
+        local=np.array([r[4] in LOCAL_REGIONS for r in rows]),
         by_main=arrays(by_main),
         by_extra=arrays(by_extra),
         by_product=arrays(by_product),
@@ -244,7 +250,7 @@ def profile_weights_from_db(conn, registry: Registry, before: date | None = None
     known = [r[0] for r in conn.execute(KNOWN_SQL, (start,)).fetchall()]
     winners = [r[0] for r in conn.execute(WINNERS_SQL, (start, before)).fetchall()]
     start_day, before_day = ((d - date(1970, 1, 1)).days for d in (start, before))
-    pool = ~np.isin(registry.inns, known) & (registry.since_day <= start_day)
+    pool = registry.local & ~np.isin(registry.inns, known) & (registry.since_day <= start_day)
     won = np.isin(registry.inns, winners)
     lift = learn_profile_lift(registry.segments(start_day), pool, won)
     return np.array([lift.get(s, 1.0) for s in registry.segments(before_day).tolist()])
@@ -269,7 +275,7 @@ def expand(
     weights: per company, how much more often its profile wins (profile_weights_from_db);
     explain: False skips the reasons (an empty list), for evaluations over the whole pool.
     """
-    alive = ~exclude & (registry.since_day <= day)
+    alive = registry.local & ~exclude & (registry.since_day <= day)
     score = np.zeros(len(registry.inns))
     reasons: list[str] = []  # texts; why[row] points into it, built only for the shown companies
     why = np.full(len(registry.inns), -1)
